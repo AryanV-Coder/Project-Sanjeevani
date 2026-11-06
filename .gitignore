@@ -5,3 +5,4 @@ venv/
 *.pyc
 .env
 deployed_contract.json
+build/

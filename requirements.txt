@@ -1,0 +1,15 @@
+# Web3 & Blockchain
+web3>=6.15.0
+py-solc-x>=2.0.2
+
+# Backend & Middleware
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+python-multipart>=0.0.9
+pydantic>=2.6.0
+python-dotenv>=1.0.1
+requests>=2.31.0
+
+# Image & Vision Processing
+pillow>=10.2.0
+
