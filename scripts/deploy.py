@@ -90,10 +90,10 @@ def main():
     if len(accounts) >= 6:
         mfg_account = accounts[1]
         distributors = [
-            accounts[2],  # Distributor 1: Airport / National Hub
-            accounts[3],  # Distributor 2: Regional Cold Storage
-            accounts[4],  # Distributor 3: City Transit Hub
-            accounts[5]   # Distributor 4: Final Mile Delivery / Pharmacy
+            accounts[2],  # Distributor 1
+            accounts[3],  # Distributor 2
+            accounts[4],  # Distributor 3
+            accounts[5]   # Distributor 4
         ]
 
         print("\nConfiguring initial roles on-chain...")
@@ -101,19 +101,18 @@ def main():
         # Authorize Manufacturer (Account 1)
         tx_mfg = contract_instance.functions.setManufacturer(mfg_account, True).transact({"from": admin_account})
         w3.eth.wait_for_transaction_receipt(tx_mfg)
-        print(f"  ✓ Authorized Manufacturer:   {mfg_account}")
+        print(f"  ✓ Authorized Manufacturer: {mfg_account}")
 
         # Authorize 4 Distributors (Accounts 2, 3, 4, 5)
-        dist_labels = ["Airport Logistics", "Regional Cold Storage", "City Transit Hub", "Final Mile Delivery"]
-        for idx, (dist_acc, label) in enumerate(zip(distributors, dist_labels), start=1):
+        for idx, dist_acc in enumerate(distributors, start=1):
             tx_dist = contract_instance.functions.setDistributor(dist_acc, True).transact({"from": admin_account})
             w3.eth.wait_for_transaction_receipt(tx_dist)
-            print(f"  ✓ Authorized Distributor #{idx} ({label}): {dist_acc}")
+            print(f"  ✓ Authorized Distributor #{idx}: {dist_acc}")
 
         sample_roles = {
             "admin": admin_account,
             "manufacturer": mfg_account,
-            "distributor": distributors[0], # Primary default
+            "distributor": distributors[0], # Default primary
             "distributors": distributors
         }
 

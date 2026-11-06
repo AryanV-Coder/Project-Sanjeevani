@@ -35,7 +35,7 @@
     <div class="card">
       <div class="card-header">
         <h2>Supply Chain Access Control (RBAC)</h2>
-        <p class="card-desc">Grant or revoke cryptographic permissions for Manufacturers and Logistics Distributors on the smart contract.</p>
+        <p class="card-desc">Grant or revoke cryptographic permissions for Manufacturers and Distributors on the smart contract.</p>
       </div>
 
       <!-- Auth Warning -->
@@ -122,12 +122,11 @@
       
       let distHtml = "";
       if (cfg.roles.distributors && Array.isArray(cfg.roles.distributors)) {
-        const labels = ["Airport Logistics", "Regional Cold Storage", "City Transit Hub", "Final Mile Delivery"];
         distHtml = cfg.roles.distributors.map((d, i) => 
-          `<div><strong>Distributor #${i + 1} (${labels[i] || 'Checkpoint'}):</strong> ${d}</div>`
+          `<div><strong>Distributor #${i + 1}:</strong> ${d}</div>`
         ).join("");
       } else if (cfg.roles.distributor) {
-        distHtml = `<div><strong>Distributor:</strong> ${cfg.roles.distributor}</div>`;
+        distHtml = `<div><strong>Distributor #1:</strong> ${cfg.roles.distributor}</div>`;
       }
 
       listDiv.innerHTML = `
