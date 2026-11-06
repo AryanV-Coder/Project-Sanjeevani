@@ -6,3 +6,6 @@ venv/
 .env
 deployed_contract.json
 build/
+backend/storage/ipfs/
+temp_ocr.jpg
+temp_gauge.jpg

@@ -12,4 +12,4 @@ requests>=2.31.0
 
 # Image & Vision Processing
 pillow>=10.2.0
-
+qrcode[pil]>=7.4.2

@@ -62,10 +62,11 @@ contract PharmaChain {
         string batchId;
         string medicineName;
         address manufacturer;
-        uint256 expiryDate; // Unix timestamp
-        int256 minTemp;     // Minimum safe temperature
-        int256 maxTemp;     // Maximum safe temperature
-        bool isCompromised; // True if breached or expired
+        uint256 expiryDate;     // Unix timestamp
+        int256 minTemp;         // Minimum safe temperature
+        int256 maxTemp;         // Maximum safe temperature
+        uint256 minCheckpoints; // Required minimum distributor verifications
+        bool isCompromised;     // True if breached or expired
         TransitRecord[] history;
     }
 
@@ -80,12 +81,14 @@ contract PharmaChain {
         string memory _medicineName, 
         uint256 _expiryDate, 
         int256 _minTemp, 
-        int256 _maxTemp
+        int256 _maxTemp,
+        uint256 _minCheckpoints
     ) external onlyManufacturer {
         require(bytes(_batchId).length > 0, "Batch ID cannot be empty");
         require(batches[_batchId].manufacturer == address(0), "Batch ID already exists");
         require(_expiryDate > block.timestamp, "Expiry date must be in future");
         require(_minTemp <= _maxTemp, "Min temp cannot exceed max temp");
+        require(_minCheckpoints > 0, "Min checkpoints must be at least 1");
 
         MedicineBatch storage newBatch = batches[_batchId];
         newBatch.batchId = _batchId;
@@ -94,6 +97,7 @@ contract PharmaChain {
         newBatch.expiryDate = _expiryDate;
         newBatch.minTemp = _minTemp;
         newBatch.maxTemp = _maxTemp;
+        newBatch.minCheckpoints = _minCheckpoints;
         newBatch.isCompromised = false;
 
         emit BatchMinted(_batchId, _medicineName, msg.sender, _expiryDate);
@@ -142,12 +146,13 @@ contract PharmaChain {
         uint256 expiryDate,
         int256 minTemp,
         int256 maxTemp,
+        uint256 minCheckpoints,
+        uint256 checkpointCount,
         bool isCompromised
     ) {
         require(batches[_batchId].manufacturer != address(0), "Batch does not exist");
         MedicineBatch storage batch = batches[_batchId];
         
-        // Critical: Dynamic expiry evaluation even if no recent transit was logged
         bool compromised = batch.isCompromised || (block.timestamp > batch.expiryDate);
 
         return (
@@ -156,6 +161,8 @@ contract PharmaChain {
             batch.expiryDate,
             batch.minTemp,
             batch.maxTemp,
+            batch.minCheckpoints,
+            batch.history.length,
             compromised
         );
     }

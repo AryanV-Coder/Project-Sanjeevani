@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sanjeevani | Decentralized Cold-Chain Tracking</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <a href="index.html" class="nav-brand">
+      <span class="brand-icon">❄️</span>
+      <div>
+        <h1 class="brand-title">Sanjeevani</h1>
+        <p class="brand-subtitle">Decentralized Cold-Chain & AI Verification</p>
+      </div>
+    </a>
+    <div class="nav-actions">
+      <div id="walletBadge" class="wallet-badge hidden">
+        <span class="role-pill" id="userRolePill">Detecting...</span>
+        <span class="address-pill" id="userAddressPill">0x...</span>
+      </div>
+      <button id="connectWalletBtn" class="btn btn-primary">Connect MetaMask</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div id="statusAlert" class="alert hidden" role="alert"></div>
+
+    <!-- Quick Batch Verification Search -->
+    <section class="search-card">
+      <h3>🔍 Check Medicine Authenticity</h3>
+      <p>Patients and pharmacists: enter your Batch ID below, or scan the QR code printed on the medicine box.</p>
+      <form id="searchBatchForm" class="search-row">
+        <input type="text" id="searchBatchId" placeholder="Enter Batch ID (e.g. VAX-2026-001)" required />
+        <button type="submit" class="btn btn-accent">Verify Medicine</button>
+      </form>
+    </section>
+
+    <!-- Staff Portals Section -->
+    <section>
+      <div class="card-header">
+        <h2>Enterprise & Staff Portals</h2>
+        <p class="card-desc">Select your authorized organization role below. Authentication is handled via MetaMask.</p>
+      </div>
+
+      <div class="portal-grid">
+        <!-- Manufacturer Box -->
+        <a href="manufacturer.html" class="portal-box">
+          <div class="portal-icon">🏭</div>
+          <div class="portal-title">Manufacturer Portal</div>
+          <div class="portal-text">Register new pharmaceutical batches on-chain, configure safe temperature rules, and generate physical QR stickers.</div>
+          <span style="color:var(--primary); font-weight:600; font-size:0.85rem; margin-top:6px;">Open Portal →</span>
+        </a>
+
+        <!-- Admin Box -->
+        <a href="admin.html" class="portal-box">
+          <div class="portal-icon">🏛️</div>
+          <div class="portal-title">Administrator Portal</div>
+          <div class="portal-text">Manage supply-chain permissions. Whitelist or revoke wallet addresses for Manufacturers and Logistics Distributors.</div>
+          <span style="color:var(--primary); font-weight:600; font-size:0.85rem; margin-top:6px;">Open Portal →</span>
+        </a>
+      </div>
+
+      <!-- Distributor Notice -->
+      <div class="card" style="background: #f8fafc; border-style: dashed;">
+        <h3 style="font-size: 1.05rem; margin-bottom: 4px;">🚚 Are you a Logistics Distributor?</h3>
+        <p style="font-size: 0.88rem; color: var(--text-muted);">
+          Distributors update cold-chain checkpoints directly in the field by <strong>scanning the physical QR code</strong> on the medicine box. The scan automatically opens the verification portal with transit logging enabled.
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="common.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadConfig();
+      await autoDetectWallet();
+
+      document.getElementById("connectWalletBtn").addEventListener("click", connectMetaMask);
+
+      // Search form handler
+      document.getElementById("searchBatchForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const batchId = document.getElementById("searchBatchId").value.trim();
+        if (batchId) {
+          window.location.href = `verify.html?batch=${encodeURIComponent(batchId)}`;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

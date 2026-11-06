@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medicine Authenticity & Verification | Sanjeevani</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <a href="index.html" class="nav-brand">
+      <span class="brand-icon">❄️</span>
+      <div>
+        <h1 class="brand-title">Sanjeevani</h1>
+        <p class="brand-subtitle">Decentralized Cold-Chain & AI Verification</p>
+      </div>
+    </a>
+    <div class="nav-actions">
+      <a href="index.html" class="nav-link">← Home</a>
+      <div id="walletBadge" class="wallet-badge hidden">
+        <span class="role-pill" id="userRolePill">Detecting...</span>
+        <span class="address-pill" id="userAddressPill">0x...</span>
+      </div>
+      <button id="connectWalletBtn" class="btn btn-outline" style="font-size:0.85rem; padding:6px 14px;">Connect MetaMask</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div id="statusAlert" class="alert hidden" role="alert"></div>
+
+    <!-- Distributor Action Callout -->
+    <div id="distributorActionCallout" class="distributor-action-bar hidden">
+      <div>
+        <p>🚚 Are you the Logistics Distributor delivering this box?</p>
+        <span style="font-size: 0.8rem; color: #15803d;">Click to record the current freezer temperature & thermometer photo.</span>
+      </div>
+      <button id="toggleTransitFormBtn" class="btn btn-accent" style="font-size:0.88rem; padding:8px 16px;">Log Transit Checkpoint</button>
+    </div>
+
+    <!-- Distributor Transit Form (Collapsible) -->
+    <div id="distributorTransitPanel" class="card hidden" style="border: 2px solid var(--accent);">
+      <div class="card-header">
+        <h2>Log Transit Checkpoint</h2>
+        <p class="card-desc">AI OCR will inspect the physical thermometer photo before recording to Ganache.</p>
+      </div>
+
+      <div id="distAuthWarning" class="auth-warning hidden">
+        ⚠️ <strong>Access Denied:</strong> Your connected wallet is not an authorized Distributor. Please switch accounts in MetaMask.
+      </div>
+
+      <form id="transitForm" class="form-grid">
+        <div class="form-group">
+          <label for="distBatchId">Batch ID</label>
+          <input type="text" id="distBatchId" readonly style="background:#f1f5f9; cursor:not-allowed;" />
+        </div>
+
+        <div class="form-group">
+          <label for="distLocation">Current Location / Warehouse</label>
+          <input type="text" id="distLocation" placeholder="e.g. Mumbai Hub Cold Storage" required />
+        </div>
+
+        <div class="form-group">
+          <label for="distTemp">Freezer Temperature (°C)</label>
+          <input type="number" step="0.1" id="distTemp" placeholder="e.g. 4.0" required />
+        </div>
+
+        <div class="form-group">
+          <label for="distPhoto">Thermometer Gauge Photo (AI Check)</label>
+          <input type="file" id="distPhoto" accept="image/*" required />
+        </div>
+
+        <div class="form-actions full-width" style="display:flex; gap:12px; margin-top:8px;">
+          <button type="submit" id="transitSubmitBtn" class="btn btn-accent">AI Verify & Anchor to Blockchain</button>
+          <button type="button" id="cancelTransitBtn" class="btn btn-outline">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Customer Verification Card -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Medicine Authenticity Verification</h2>
+        <p class="card-desc">Real-time immutable cold-chain verification queried directly from the Ethereum blockchain.</p>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loadingState" style="text-align:center; padding:32px 0;">
+        <p style="color:var(--text-muted); font-size:1.05rem;">Fetching on-chain records from Ganache...</p>
+      </div>
+
+      <!-- Results View -->
+      <div id="resultsView" class="hidden">
+        <!-- Safety Banner: Green, Yellow/Warning, or Red -->
+        <div id="safetyVerdict" class="verdict-banner"></div>
+
+        <div class="batch-summary">
+          <div class="info-item">
+            <span class="label">Medicine Name</span>
+            <span class="val" id="resMedName">-</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Batch Identifier</span>
+            <span class="val" id="resBatchId">-</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Safe Temp Range</span>
+            <span class="val" id="resTempRange">-</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Expiry Date</span>
+            <span class="val" id="resExpiry">-</span>
+          </div>
+          <div class="info-item" style="grid-column: 1 / -1; background:#ffffff; padding:10px 14px; border-radius:6px; border:1px solid #e2e8f0;">
+            <span class="label">Custody Documentation</span>
+            <span class="val" id="resCheckpoints">-</span>
+          </div>
+        </div>
+
+        <h3 style="font-size:1.15rem; margin-bottom:12px;">Cold-Chain Journey Timeline</h3>
+        <div id="timelineContainer" class="timeline"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="common.js"></script>
+  <script>
+    let currentBatchId = "";
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadConfig();
+      await autoDetectWallet();
+
+      document.getElementById("connectWalletBtn").addEventListener("click", connectMetaMask);
+
+      // Extract batch from URL (?batch=VAX-2026-001)
+      const params = new URLSearchParams(window.location.search);
+      currentBatchId = params.get("batch");
+
+      if (!currentBatchId) {
+        document.getElementById("loadingState").innerHTML = `
+          <p style="color:var(--danger); font-weight:600;">No Batch ID provided in URL.</p>
+          <a href="index.html" class="btn btn-outline" style="margin-top:12px;">Return to Search</a>
+        `;
+        return;
+      }
+
+      // Pre-fill distributor form
+      document.getElementById("distBatchId").value = currentBatchId;
+
+      // Load on-chain batch history
+      await fetchBatchDetails(currentBatchId);
+
+      // Distributor toggle button
+      document.getElementById("toggleTransitFormBtn").addEventListener("click", async () => {
+        if (!sharedAddress) {
+          const res = await connectMetaMask();
+          if (!res) return;
+        }
+        openDistributorPanel();
+      });
+
+      document.getElementById("cancelTransitBtn").addEventListener("click", () => {
+        document.getElementById("distributorTransitPanel").classList.add("hidden");
+      });
+
+      // Distributor Transit Form Submit
+      document.getElementById("transitForm").addEventListener("submit", handleTransitSubmit);
+    });
+
+    async function fetchBatchDetails(batchId) {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/batch/${encodeURIComponent(batchId)}`);
+        if (!res.ok) {
+          throw new Error("Batch not found on blockchain");
+        }
+        const data = await res.json();
+        renderBatchData(data);
+        document.getElementById("loadingState").classList.add("hidden");
+        document.getElementById("resultsView").classList.remove("hidden");
+        document.getElementById("distributorActionCallout").classList.remove("hidden");
+      } catch (err) {
+        document.getElementById("loadingState").innerHTML = `
+          <p style="color:var(--danger); font-weight:600;">Error: ${err.message}</p>
+          <a href="index.html" class="btn btn-outline" style="margin-top:12px;">Return to Home</a>
+        `;
+      }
+    }
+
+    function renderBatchData(batch) {
+      const verdict = document.getElementById("safetyVerdict");
+
+      // 1. Compromised Check (Temp breach or expired)
+      if (batch.isCompromised) {
+        verdict.className = "verdict-banner compromised";
+        verdict.innerHTML = "🚨 BATCH COMPROMISED — DO NOT CONSUME<br><span style='font-size:0.85rem;font-weight:400;'>This product suffered a temperature spike or passed its expiration date.</span>";
+      } 
+      // 2. Under-Documented Check (Insufficient distributor verifications)
+      else if (batch.isUnderDocumented) {
+        verdict.className = "verdict-banner";
+        verdict.style.background = "#fffbeb";
+        verdict.style.color = "#b45309";
+        verdict.style.border = "2px solid #fde68a";
+        verdict.innerHTML = `⚠️ INCOMPLETE CUSTODY CHAIN — NOT FULLY DOCUMENTED<br><span style='font-size:0.85rem;font-weight:400;'>Manufacturer required at least <strong>${batch.minCheckpoints} distributor checkpoints</strong>, but only <strong>${batch.checkpointCount}</strong> have verified it so far.</span>`;
+      } 
+      // 3. Fully Verified & Safe
+      else {
+        verdict.className = "verdict-banner safe";
+        verdict.style.background = "";
+        verdict.style.color = "";
+        verdict.style.border = "";
+        verdict.innerHTML = `🛡️ FULLY VERIFIED & AUTHENTIC<br><span style='font-size:0.85rem;font-weight:400;'>All ${batch.minCheckpoints} required distributor checkpoints verified within safe temperature limits (${batch.minTemp}°C to ${batch.maxTemp}°C).</span>`;
+      }
+
+      document.getElementById("resMedName").textContent = batch.medicineName;
+      document.getElementById("resBatchId").textContent = batch.batchId;
+      document.getElementById("resTempRange").textContent = `${batch.minTemp}°C to ${batch.maxTemp}°C`;
+
+      const exp = new Date(Number(batch.expiryDate) * 1000);
+      document.getElementById("resExpiry").textContent = exp.toLocaleDateString();
+
+      // Checkpoint custody text
+      const statusIcon = batch.isUnderDocumented ? "⚠️ Incomplete" : "✓ Complete";
+      document.getElementById("resCheckpoints").innerHTML = `${batch.checkpointCount} of ${batch.minCheckpoints} required checkpoints logged (${statusIcon})`;
+
+      const timeline = document.getElementById("timelineContainer");
+      timeline.innerHTML = "";
+
+      if (batch.history.length === 0) {
+        timeline.innerHTML = "<p style='color:var(--text-muted); font-size:0.9rem;'>At manufacturer origin. No transit checkpoints recorded yet.</p>";
+        return;
+      }
+
+      batch.history.forEach((rec, idx) => {
+        const isBreach = rec.temperature < batch.minTemp || rec.temperature > batch.maxTemp;
+        const dateStr = new Date(Number(rec.timestamp) * 1000).toLocaleString();
+
+        const item = document.createElement("div");
+        item.className = `timeline-item ${isBreach ? "breach" : ""}`;
+        item.innerHTML = `
+          <div class="timeline-content">
+            <div class="timeline-header">
+              <span class="timeline-loc">📍 Checkpoint #${idx + 1}: ${escapeHtml(rec.location)}</span>
+              <span class="timeline-time">${dateStr}</span>
+            </div>
+            <div class="timeline-temp ${isBreach ? 'bad' : 'ok'}">
+              Logged Temp: ${rec.temperature}°C ${isBreach ? "⚠️ (TEMPERATURE BREACH!)" : "✓ (In Range)"}
+            </div>
+            <div class="timeline-proof">
+              <a href="${BACKEND_URL}/ipfs/${rec.imageCID}" target="_blank" rel="noopener">
+                📷 View Thermometer Photo Proof (IPFS CID: ${rec.imageCID.slice(0, 10)}...)
+              </a>
+            </div>
+          </div>
+        `;
+        timeline.appendChild(item);
+      });
+    }
+
+    function openDistributorPanel() {
+      const panel = document.getElementById("distributorTransitPanel");
+      const warning = document.getElementById("distAuthWarning");
+      const submitBtn = document.getElementById("transitSubmitBtn");
+
+      panel.classList.remove("hidden");
+      panel.scrollIntoView({ behavior: "smooth" });
+
+      const isAllowed = sharedRole === "distributor" || sharedRole === "admin";
+      warning.classList.toggle("hidden", isAllowed);
+      submitBtn.disabled = !isAllowed;
+    }
+
+    function onAccountChanged(address, role) {
+      if (document.getElementById("distributorTransitPanel").classList.contains("hidden")) return;
+      openDistributorPanel();
+    }
+
+    async function handleTransitSubmit(e) {
+      e.preventDefault();
+      if (!sharedContract || !sharedSigner) {
+        alert("Please connect your authorized Distributor wallet.");
+        return;
+      }
+
+      const location = document.getElementById("distLocation").value.trim();
+      const temp = parseFloat(document.getElementById("distTemp").value);
+      const photoInput = document.getElementById("distPhoto");
+
+      if (!photoInput.files || photoInput.files.length === 0) {
+        alert("Please upload a photo of the thermometer gauge.");
+        return;
+      }
+
+      try {
+        showAlert("Step 1/2: AI/OCR checking thermometer photo...", "info");
+
+        const formData = new FormData();
+        formData.append("temperature", temp);
+        formData.append("photo", photoInput.files[0]);
+
+        const res = await fetch(`${BACKEND_URL}/api/verify-and-upload`, {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.detail || "AI Verification failed");
+        }
+
+        const aiResult = await res.json();
+        const imageCID = aiResult.imageCID;
+
+        showAlert("Step 2/2: AI check passed! Please sign transaction in MetaMask...", "info");
+        const intTemp = Math.round(temp);
+        const tx = await sharedContract.updateTransit(currentBatchId, location, intTemp, imageCID);
+
+        showAlert("Transaction submitted to Ganache! Confirming...", "info");
+        await tx.wait();
+
+        showAlert("Transit checkpoint logged successfully! Refreshing timeline...", "success");
+        document.getElementById("distributorTransitPanel").classList.add("hidden");
+        document.getElementById("transitForm").reset();
+        
+        // Refresh batch data
+        await fetchBatchDetails(currentBatchId);
+      } catch (err) {
+        console.error("Transit error:", err);
+        showAlert(err.message || "Transit update failed", "danger");
+      }
+    }
+  </script>
+</body>
+</html>

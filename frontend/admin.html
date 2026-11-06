@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Portal | Sanjeevani</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <a href="index.html" class="nav-brand">
+      <span class="brand-icon">❄️</span>
+      <div>
+        <h1 class="brand-title">Sanjeevani</h1>
+        <p class="brand-subtitle">Administrator Portal</p>
+      </div>
+    </a>
+    <div class="nav-actions">
+      <a href="index.html" class="nav-link">← Home</a>
+      <div id="walletBadge" class="wallet-badge hidden">
+        <span class="role-pill" id="userRolePill">Detecting...</span>
+        <span class="address-pill" id="userAddressPill">0x...</span>
+      </div>
+      <button id="connectWalletBtn" class="btn btn-primary" style="font-size:0.85rem; padding:6px 14px;">Connect MetaMask</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div id="statusAlert" class="alert hidden" role="alert"></div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Supply Chain Access Control (RBAC)</h2>
+        <p class="card-desc">Grant or revoke cryptographic permissions for Manufacturers and Logistics Distributors on the smart contract.</p>
+      </div>
+
+      <!-- Auth Warning -->
+      <div id="adminAuthWarning" class="auth-warning hidden">
+        ⚠️ <strong>Access Denied:</strong> Your connected wallet is not the Contract Admin.
+      </div>
+
+      <form id="adminRoleForm" class="form-grid">
+        <div class="form-group full-width">
+          <label for="roleWalletAddress">Target Wallet Address</label>
+          <input type="text" id="roleWalletAddress" placeholder="0x..." required />
+        </div>
+
+        <div class="form-group">
+          <label for="roleSelect">Role Type</label>
+          <select id="roleSelect">
+            <option value="manufacturer">Manufacturer</option>
+            <option value="distributor">Distributor</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="roleAction">Authorization Status</label>
+          <select id="roleAction">
+            <option value="true">Authorize (Grant Access)</option>
+            <option value="false">Revoke (Block Access)</option>
+          </select>
+        </div>
+
+        <div class="form-actions full-width">
+          <button type="submit" id="updateRoleBtn" class="btn btn-primary">Update Role On-Chain</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Active Deployed Roles Info -->
+    <div class="card" style="background:#f8fafc;">
+      <h3 style="font-size:1.05rem; margin-bottom:8px;">Current Bootstrapped Roles (Ganache CLI)</h3>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
+        These initial test accounts were configured automatically when running <code>deploy.py</code>:
+      </p>
+      <div id="rolesList" style="font-size:0.85rem; font-family:monospace; color:#334155; line-height:1.8;">
+        Loading accounts from backend...
+      </div>
+    </div>
+
+  </main>
+
+  <script src="common.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const cfg = await loadConfig();
+      await autoDetectWallet();
+      validateAdminAccess();
+      displayConfiguredRoles(cfg);
+
+      document.getElementById("connectWalletBtn").addEventListener("click", async () => {
+        await connectMetaMask();
+        validateAdminAccess();
+      });
+
+      document.getElementById("adminRoleForm").addEventListener("submit", handleRoleUpdate);
+    });
+
+    function validateAdminAccess() {
+      const warning = document.getElementById("adminAuthWarning");
+      const submitBtn = document.getElementById("updateRoleBtn");
+
+      const isAllowed = sharedRole === "admin";
+      warning.classList.toggle("hidden", isAllowed);
+      submitBtn.disabled = !isAllowed;
+    }
+
+    function onAccountChanged(addr, role) {
+      validateAdminAccess();
+    }
+
+    function displayConfiguredRoles(cfg) {
+      const listDiv = document.getElementById("rolesList");
+      if (!cfg || !cfg.roles) {
+        listDiv.textContent = "Could not load roles.";
+        return;
+      }
+      listDiv.innerHTML = `
+        <div><strong>Admin (Account 0):</strong> ${cfg.roles.admin || 'None'}</div>
+        <div><strong>Manufacturer (Account 1):</strong> ${cfg.roles.manufacturer || 'None'}</div>
+        <div><strong>Distributor (Account 2):</strong> ${cfg.roles.distributor || 'None'}</div>
+      `;
+    }
+
+    async function handleRoleUpdate(e) {
+      e.preventDefault();
+      if (!sharedContract || !sharedSigner) {
+        alert("Please connect your Admin wallet.");
+        return;
+      }
+
+      const address = document.getElementById("roleWalletAddress").value.trim();
+      const roleType = document.getElementById("roleSelect").value;
+      const status = document.getElementById("roleAction").value === "true";
+
+      if (!ethers.isAddress(address)) {
+        alert("Invalid Ethereum wallet address format.");
+        return;
+      }
+
+      try {
+        showAlert("Please approve transaction in MetaMask...", "info");
+        let tx;
+        if (roleType === "manufacturer") {
+          tx = await sharedContract.setManufacturer(address, status);
+        } else {
+          tx = await sharedContract.setDistributor(address, status);
+        }
+
+        showAlert("Updating role on Ganache...", "info");
+        await tx.wait();
+
+        showAlert(`Role update confirmed on blockchain: ${roleType} for ${address} is now ${status}!`, "success");
+        document.getElementById("adminRoleForm").reset();
+      } catch (err) {
+        console.error("Role update error:", err);
+        showAlert("Role update failed: " + (err.reason || err.message), "danger");
+      }
+    }
+  </script>
+</body>
+</html>
+

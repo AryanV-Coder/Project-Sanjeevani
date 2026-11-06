@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manufacturer Portal | Sanjeevani</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <a href="index.html" class="nav-brand">
+      <span class="brand-icon">❄️</span>
+      <div>
+        <h1 class="brand-title">Sanjeevani</h1>
+        <p class="brand-subtitle">Manufacturer Portal</p>
+      </div>
+    </a>
+    <div class="nav-actions">
+      <a href="index.html" class="nav-link">← Home</a>
+      <div id="walletBadge" class="wallet-badge hidden">
+        <span class="role-pill" id="userRolePill">Detecting...</span>
+        <span class="address-pill" id="userAddressPill">0x...</span>
+      </div>
+      <button id="connectWalletBtn" class="btn btn-primary" style="font-size:0.85rem; padding:6px 14px;">Connect MetaMask</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div id="statusAlert" class="alert hidden" role="alert"></div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Register Medicine Batch</h2>
+        <p class="card-desc">Mint an immutable pharmaceutical batch on the blockchain, set safe cold-chain rules & minimum distributor checkpoints, and generate physical QR stickers.</p>
+      </div>
+
+      <!-- Auth Warning -->
+      <div id="mfgAuthWarning" class="auth-warning hidden">
+        ⚠️ <strong>Access Denied:</strong> Your connected wallet is not registered as an authorized Manufacturer on the blockchain.
+      </div>
+
+      <form id="mintBatchForm" class="form-grid">
+        <div class="form-group">
+          <label for="mfgBatchId">Batch Identifier</label>
+          <input type="text" id="mfgBatchId" placeholder="e.g. VAX-2026-001" required />
+        </div>
+
+        <div class="form-group">
+          <label for="mfgMedName">Medicine Name</label>
+          <input type="text" id="mfgMedName" placeholder="e.g. Covaxin Shield" required />
+        </div>
+
+        <div class="form-group">
+          <label for="mfgMinTemp">Min Safe Temp (°C)</label>
+          <input type="number" id="mfgMinTemp" value="2" required />
+        </div>
+
+        <div class="form-group">
+          <label for="mfgMaxTemp">Max Safe Temp (°C)</label>
+          <input type="number" id="mfgMaxTemp" value="8" required />
+        </div>
+
+        <div class="form-group">
+          <label for="mfgMinCheckpoints">Minimum Required Distributors</label>
+          <input type="number" id="mfgMinCheckpoints" value="2" min="1" required />
+          <small style="color:var(--text-muted); font-size:0.75rem;">Batch is flagged incomplete if verified at fewer checkpoints.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="mfgExpiry">Expiry Date</label>
+          <input type="date" id="mfgExpiry" required />
+        </div>
+
+        <div class="form-actions full-width">
+          <button type="submit" id="mintSubmitBtn" class="btn btn-primary">Mint Batch on Blockchain</button>
+        </div>
+      </form>
+
+      <!-- QR Code Sticker Generator Area -->
+      <div id="qrResult" class="qr-container hidden">
+        <h3 style="color:var(--success); font-size:1.2rem; margin-bottom:4px;">🎉 Batch Minted Successfully!</h3>
+        <p style="font-size:0.88rem; color:var(--text-muted);">
+          Print and affix this QR sticker onto the physical vaccine/medicine container:
+        </p>
+        <div id="qrcodeBox" class="qrcode-wrapper"></div>
+        <p id="qrLabelText" style="font-weight:700; font-size:0.95rem; margin-bottom:12px;"></p>
+        <div style="display:flex; justify-content:center; gap:12px;">
+          <a id="previewVerifyLink" href="#" target="_blank" class="btn btn-accent" style="font-size:0.85rem; padding:8px 16px;">Test QR Link (Verify) →</a>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="common.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadConfig();
+      await autoDetectWallet();
+      validateManufacturerAccess();
+
+      document.getElementById("connectWalletBtn").addEventListener("click", async () => {
+        await connectMetaMask();
+        validateManufacturerAccess();
+      });
+
+      document.getElementById("mintBatchForm").addEventListener("submit", handleMintBatch);
+    });
+
+    function validateManufacturerAccess() {
+      const warning = document.getElementById("mfgAuthWarning");
+      const submitBtn = document.getElementById("mintSubmitBtn");
+
+      const isAllowed = sharedRole === "manufacturer" || sharedRole === "admin";
+      warning.classList.toggle("hidden", isAllowed);
+      submitBtn.disabled = !isAllowed;
+    }
+
+    function onAccountChanged(addr, role) {
+      validateManufacturerAccess();
+    }
+
+    async function handleMintBatch(e) {
+      e.preventDefault();
+      if (!sharedContract || !sharedSigner) {
+        alert("Please connect your authorized Manufacturer wallet.");
+        return;
+      }
+
+      const batchId = document.getElementById("mfgBatchId").value.trim();
+      const medName = document.getElementById("mfgMedName").value.trim();
+      const minTemp = parseInt(document.getElementById("mfgMinTemp").value);
+      const maxTemp = parseInt(document.getElementById("mfgMaxTemp").value);
+      const minCheckpoints = parseInt(document.getElementById("mfgMinCheckpoints").value);
+      const expiryVal = document.getElementById("mfgExpiry").value;
+
+      if (!expiryVal) {
+        alert("Please select an expiry date");
+        return;
+      }
+
+      const expiryTimestamp = Math.floor(new Date(expiryVal).getTime() / 1000);
+
+      try {
+        showAlert("Please approve transaction in MetaMask...", "info");
+        const tx = await sharedContract.mintBatch(
+          batchId,
+          medName,
+          expiryTimestamp,
+          minTemp,
+          maxTemp,
+          minCheckpoints
+        );
+        
+        showAlert("Transaction submitted to Ganache! Confirming...", "info");
+        await tx.wait();
+
+        showAlert(`Batch "${batchId}" successfully minted to blockchain!`, "success");
+
+        // Generate Physical QR Code pointing to verify.html
+        const qrBox = document.getElementById("qrcodeBox");
+        qrBox.innerHTML = "";
+
+        const verifyUrl = `${window.location.origin}/verify.html?batch=${encodeURIComponent(batchId)}`;
+        new QRCode(qrBox, {
+          text: verifyUrl,
+          width: 200,
+          height: 200
+        });
+
+        document.getElementById("qrLabelText").textContent = `Scan URL: ${verifyUrl}`;
+        document.getElementById("previewVerifyLink").href = verifyUrl;
+        document.getElementById("qrResult").classList.remove("hidden");
+        document.getElementById("qrResult").scrollIntoView({ behavior: "smooth" });
+      } catch (err) {
+        console.error("Mint error:", err);
+        showAlert("Minting failed: " + (err.reason || err.message), "danger");
+      }
+    }
+  </script>
+</body>
+</html>
