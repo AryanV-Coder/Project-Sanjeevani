@@ -21,7 +21,7 @@ def main():
     if not w3.is_connected():
         print(f"\n❌ Error: Cannot connect to Ganache CLI at {GANACHE_URL}")
         print("Please start Ganache in a separate terminal by running:")
-        print("    ganache")
+        print("    ganache -h 0.0.0.0 -p 8545")
         sys.exit(1)
 
     accounts = w3.eth.accounts
@@ -83,26 +83,38 @@ def main():
     print(f"Gas Used:         {tx_receipt.gasUsed}")
     print(f"Block Number:     {tx_receipt.blockNumber}")
 
-    # Set up initial roles
+    # Set up initial roles: 1 Manufacturer + 4 Distributors
     contract_instance = w3.eth.contract(address=contract_address, abi=abi)
     sample_roles = {}
-    if len(accounts) >= 3:
+    
+    if len(accounts) >= 6:
         mfg_account = accounts[1]
-        dist_account = accounts[2]
+        distributors = [
+            accounts[2],  # Distributor 1: Airport / National Hub
+            accounts[3],  # Distributor 2: Regional Cold Storage
+            accounts[4],  # Distributor 3: City Transit Hub
+            accounts[5]   # Distributor 4: Final Mile Delivery / Pharmacy
+        ]
+
         print("\nConfiguring initial roles on-chain...")
         
-        tx1 = contract_instance.functions.setManufacturer(mfg_account, True).transact({"from": admin_account})
-        w3.eth.wait_for_transaction_receipt(tx1)
-        print(f"  Authorized Manufacturer: {mfg_account}")
-        
-        tx2 = contract_instance.functions.setDistributor(dist_account, True).transact({"from": admin_account})
-        w3.eth.wait_for_transaction_receipt(tx2)
-        print(f"  Authorized Distributor:  {dist_account}")
+        # Authorize Manufacturer (Account 1)
+        tx_mfg = contract_instance.functions.setManufacturer(mfg_account, True).transact({"from": admin_account})
+        w3.eth.wait_for_transaction_receipt(tx_mfg)
+        print(f"  ✓ Authorized Manufacturer:   {mfg_account}")
+
+        # Authorize 4 Distributors (Accounts 2, 3, 4, 5)
+        dist_labels = ["Airport Logistics", "Regional Cold Storage", "City Transit Hub", "Final Mile Delivery"]
+        for idx, (dist_acc, label) in enumerate(zip(distributors, dist_labels), start=1):
+            tx_dist = contract_instance.functions.setDistributor(dist_acc, True).transact({"from": admin_account})
+            w3.eth.wait_for_transaction_receipt(tx_dist)
+            print(f"  ✓ Authorized Distributor #{idx} ({label}): {dist_acc}")
 
         sample_roles = {
             "admin": admin_account,
             "manufacturer": mfg_account,
-            "distributor": dist_account
+            "distributor": distributors[0], # Primary default
+            "distributors": distributors
         }
 
     # Save artifacts for FastAPI & Frontend
@@ -127,8 +139,7 @@ def main():
     with open(config_path, "w") as f:
         json.dump(deployment_info, f, indent=2)
     print(f"Saved deployment metadata to: {config_path}")
-    print(f"\n✅ Setup complete! Ready for FastAPI backend on {GANACHE_URL}")
+    print(f"\n✅ Setup complete! Configured 1 Manufacturer and 4 Distributors.")
 
 if __name__ == "__main__":
     main()
-

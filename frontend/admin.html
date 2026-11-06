@@ -75,9 +75,9 @@
     <div class="card" style="background:#f8fafc;">
       <h3 style="font-size:1.05rem; margin-bottom:8px;">Current Bootstrapped Roles (Ganache CLI)</h3>
       <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-        These initial test accounts were configured automatically when running <code>deploy.py</code>:
+        These pre-authorized accounts were configured automatically during contract deployment:
       </p>
-      <div id="rolesList" style="font-size:0.85rem; font-family:monospace; color:#334155; line-height:1.8;">
+      <div id="rolesList" style="font-size:0.85rem; font-family:monospace; color:#334155; line-height:2.0;">
         Loading accounts from backend...
       </div>
     </div>
@@ -119,10 +119,21 @@
         listDiv.textContent = "Could not load roles.";
         return;
       }
+      
+      let distHtml = "";
+      if (cfg.roles.distributors && Array.isArray(cfg.roles.distributors)) {
+        const labels = ["Airport Logistics", "Regional Cold Storage", "City Transit Hub", "Final Mile Delivery"];
+        distHtml = cfg.roles.distributors.map((d, i) => 
+          `<div><strong>Distributor #${i + 1} (${labels[i] || 'Checkpoint'}):</strong> ${d}</div>`
+        ).join("");
+      } else if (cfg.roles.distributor) {
+        distHtml = `<div><strong>Distributor:</strong> ${cfg.roles.distributor}</div>`;
+      }
+
       listDiv.innerHTML = `
         <div><strong>Admin (Account 0):</strong> ${cfg.roles.admin || 'None'}</div>
         <div><strong>Manufacturer (Account 1):</strong> ${cfg.roles.manufacturer || 'None'}</div>
-        <div><strong>Distributor (Account 2):</strong> ${cfg.roles.distributor || 'None'}</div>
+        ${distHtml}
       `;
     }
 
@@ -164,4 +175,3 @@
   </script>
 </body>
 </html>
-
