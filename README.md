@@ -12,6 +12,33 @@ It eliminates traditional centralized databases, credentials, and single points 
 
 ---
 
+## 🚨 The Problem We Are Solving
+
+Temperature-sensitive pharmaceuticals—including life-saving vaccines (e.g., mRNA, COVID-19, polio), insulin, and biologics—require strict, uninterrupted temperature management throughout transit (typically $2^\circ\text{C}$ to $8^\circ\text{C}$ or deep-freeze at $-20^\circ\text{C}$ to $-70^\circ\text{C}$).
+
+The modern pharmaceutical supply chain faces **four critical systemic failures**:
+
+### 1. The Global Cold-Chain Wastage Crisis
+* According to the **World Health Organization (WHO)**, up to **50% of vaccines are wasted globally each year**, primarily due to cold-chain failures, power interruptions, and unmonitored logistics breakdowns.
+* Exposure to temperatures outside safe boundaries causes biological denaturation: vaccines lose immunogenic potency, rendering them therapeutically useless or causing severe adverse patient reactions.
+
+### 2. "Silent Spoilage" & Counterfeiting
+* **Thermally compromised pharmaceuticals look identical to safe ones.** A patient, doctor, or pharmacist receiving a spoiled vial cannot detect with the naked eye whether the medicine sat in a $35^\circ\text{C}$ delivery truck 48 hours prior.
+* Illegitimate suppliers exploit opaque supply lines to insert counterfeit, expired, or diverted stock into legal pharmacy channels.
+
+### 3. Centralized Database Tampering & Opaque Silos
+* Traditional logistics rely on centralized databases (SQL / MongoDB) managed by individual shipping vendors.
+* **Vulnerable to Data Manipulation:** If a driver notices a freezer failure mid-transit, an operator or supervisor can alter log entries in their private database to conceal the breach and avoid financial penalties.
+* **Credential Vulnerability:** Centralized accounts (passwords, JWTs, admin logins) are subject to phishing, credential stuffing, and unauthorized insider tampering.
+* **Zero Patient Visibility:** Patients and clinics are kept entirely in the dark, with no direct way to audit the batch's origin and transit history.
+
+### 4. The Blockchain "Oracle Problem" (*Garbage-In, Garbage-Out*)
+* While blockchains guarantee that records cannot be altered *after* they are written, **they cannot verify if the data entered was true in the physical world**.
+* If a negligent distributor types `4°C` into a blockchain portal while the freezer is actually at `22°C`, the blockchain immutably records a lie.
+* **Sanjeevani's Solution:** We eliminate manual self-reporting by pairing on-chain smart contract invariants with an **AI/Computer Vision OCR engine**. Field workers must submit an authentic photo of the physical gauge; the AI extracts the temperature reading directly from the image, cross-checks it against user input, and rejects forged data before it ever reaches the blockchain.
+
+---
+
 ## 📌 Key Innovations & Features
 
 1. **Pure Blockchain Authentication (No Traditional Passwords)**
