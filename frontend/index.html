@@ -6,6 +6,8 @@
   <title>Sanjeevani | Decentralized Cold-Chain Tracking</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+  <!-- HTML5 QR Code Scanner Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 
@@ -34,11 +36,28 @@
     <!-- Quick Batch Verification Search -->
     <section class="search-card">
       <h3>🔍 Check Medicine Authenticity</h3>
-      <p>Patients and pharmacists: enter your Batch ID below, or scan the QR code printed on the medicine box.</p>
+      <p>Patients, doctors, and pharmacists: verify your medicine by typing the Batch ID, scanning the QR sticker with your camera, or uploading a QR photo.</p>
+      
       <form id="searchBatchForm" class="search-row">
         <input type="text" id="searchBatchId" placeholder="Enter Batch ID (e.g. VAX-2026-001)" required />
         <button type="submit" class="btn btn-accent">Verify Medicine</button>
       </form>
+
+      <div class="qr-actions-row">
+        <button type="button" id="btnStartCameraHome" class="btn btn-outline" style="background:rgba(255,255,255,0.2); color:white; border-color:rgba(255,255,255,0.4);">
+          📷 Scan with Camera
+        </button>
+        <label class="btn btn-outline" style="background:rgba(255,255,255,0.2); color:white; border-color:rgba(255,255,255,0.4); cursor:pointer; margin-bottom:0;">
+          📁 Upload QR Image
+          <input type="file" id="qrFileInputHome" accept="image/*" style="display:none;" />
+        </label>
+      </div>
+
+      <!-- Live Camera Scanner Box (Hidden by default) -->
+      <div id="scannerBoxHome" class="scanner-box hidden" style="margin-top:16px;">
+        <div id="qrReaderHome" class="scanner-preview"></div>
+        <button type="button" id="btnCloseCameraHome" class="btn btn-outline" style="margin-top:12px;">Close Camera</button>
+      </div>
     </section>
 
     <!-- Staff Portals Section -->
@@ -92,6 +111,15 @@
         if (batchId) {
           window.location.href = `verify.html?batch=${encodeURIComponent(batchId)}`;
         }
+      });
+
+      // Initialize Camera & File QR Scanner
+      initQrScanner({
+        readerElementId: "qrReaderHome",
+        startCameraBtnId: "btnStartCameraHome",
+        fileInputId: "qrFileInputHome",
+        scannerBoxId: "scannerBoxHome",
+        closeCameraBtnId: "btnCloseCameraHome"
       });
     });
   </script>

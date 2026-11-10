@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- HTML5 QR Code Scanner Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 
@@ -95,6 +97,33 @@
       </div>
     </div>
 
+    <!-- Quick Batch Verification / Inspection for Manufacturers -->
+    <div class="card">
+      <div class="card-header">
+        <h2>🔍 Inspect & Verify Any Batch</h2>
+        <p class="card-desc">Scan or enter any existing batch's QR code to review its live transit checkpoints, temperature history, and safety status.</p>
+      </div>
+
+      <div class="search-row">
+        <input type="text" id="mfgVerifyBatchId" placeholder="Enter Batch ID (e.g. VAX-2026-001)" />
+        <button type="button" id="btnMfgVerify" class="btn btn-accent">Verify Batch</button>
+      </div>
+
+      <div class="qr-actions-row">
+        <button type="button" id="btnStartCameraMfg" class="btn btn-outline">📷 Scan with Camera</button>
+        <label class="btn btn-outline" style="cursor:pointer; margin-bottom:0;">
+          📁 Upload QR Image
+          <input type="file" id="qrFileInputMfg" accept="image/*" style="display:none;" />
+        </label>
+      </div>
+
+      <!-- Live Camera Scanner Box (Hidden by default) -->
+      <div id="scannerBoxMfg" class="scanner-box hidden">
+        <div id="qrReaderMfg" class="scanner-preview"></div>
+        <button type="button" id="btnCloseCameraMfg" class="btn btn-outline" style="margin-top:12px;">Close Camera</button>
+      </div>
+    </div>
+
   </main>
 
   <script src="common.js"></script>
@@ -110,6 +139,21 @@
       });
 
       document.getElementById("mintBatchForm").addEventListener("submit", handleMintBatch);
+
+      // Manual verify button
+      document.getElementById("btnMfgVerify").addEventListener("click", () => {
+        const id = document.getElementById("mfgVerifyBatchId").value.trim();
+        if (id) window.location.href = `verify.html?batch=${encodeURIComponent(id)}`;
+      });
+
+      // Initialize Camera & File QR Scanner
+      initQrScanner({
+        readerElementId: "qrReaderMfg",
+        startCameraBtnId: "btnStartCameraMfg",
+        fileInputId: "qrFileInputMfg",
+        scannerBoxId: "scannerBoxMfg",
+        closeCameraBtnId: "btnCloseCameraMfg"
+      });
     });
 
     function validateManufacturerAccess() {

@@ -6,6 +6,8 @@
   <title>Admin Portal | Sanjeevani</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+  <!-- HTML5 QR Code Scanner Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 
@@ -71,6 +73,33 @@
       </form>
     </div>
 
+    <!-- Quick Batch Verification / Inspection for Admin -->
+    <div class="card">
+      <div class="card-header">
+        <h2>🔍 Inspect & Verify Any Batch</h2>
+        <p class="card-desc">Inspect any medicine batch's on-chain history, audit distributor checkpoints, or scan physical box QR codes.</p>
+      </div>
+
+      <div class="search-row">
+        <input type="text" id="adminVerifyBatchId" placeholder="Enter Batch ID (e.g. VAX-2026-001)" />
+        <button type="button" id="btnAdminVerify" class="btn btn-accent">Verify Batch</button>
+      </div>
+
+      <div class="qr-actions-row">
+        <button type="button" id="btnStartCameraAdmin" class="btn btn-outline">📷 Scan with Camera</button>
+        <label class="btn btn-outline" style="cursor:pointer; margin-bottom:0;">
+          📁 Upload QR Image
+          <input type="file" id="qrFileInputAdmin" accept="image/*" style="display:none;" />
+        </label>
+      </div>
+
+      <!-- Live Camera Scanner Box (Hidden by default) -->
+      <div id="scannerBoxAdmin" class="scanner-box hidden">
+        <div id="qrReaderAdmin" class="scanner-preview"></div>
+        <button type="button" id="btnCloseCameraAdmin" class="btn btn-outline" style="margin-top:12px;">Close Camera</button>
+      </div>
+    </div>
+
     <!-- Active Deployed Roles Info -->
     <div class="card" style="background:#f8fafc;">
       <h3 style="font-size:1.05rem; margin-bottom:8px;">Current Bootstrapped Roles (Ganache CLI)</h3>
@@ -98,6 +127,21 @@
       });
 
       document.getElementById("adminRoleForm").addEventListener("submit", handleRoleUpdate);
+
+      // Manual verify button
+      document.getElementById("btnAdminVerify").addEventListener("click", () => {
+        const id = document.getElementById("adminVerifyBatchId").value.trim();
+        if (id) window.location.href = `verify.html?batch=${encodeURIComponent(id)}`;
+      });
+
+      // Initialize Camera & File QR Scanner
+      initQrScanner({
+        readerElementId: "qrReaderAdmin",
+        startCameraBtnId: "btnStartCameraAdmin",
+        fileInputId: "qrFileInputAdmin",
+        scannerBoxId: "scannerBoxAdmin",
+        closeCameraBtnId: "btnCloseCameraAdmin"
+      });
     });
 
     function validateAdminAccess() {

@@ -170,3 +170,97 @@ function escapeHtml(str) {
   }[tag] || tag));
 }
 
+/**
+ * QR Code Decoding & Verification Helper
+ * Extracts batch ID from scanned text/URL and redirects to verify.html
+ */
+function handleDecodedQr(decodedText) {
+  let batchId = decodedText.trim();
+  try {
+    const url = new URL(decodedText);
+    const param = url.searchParams.get("batch");
+    if (param) batchId = param;
+  } catch (e) {
+    const match = decodedText.match(/[?&]batch=([^&]+)/);
+    if (match && match[1]) {
+      batchId = decodeURIComponent(match[1]);
+    }
+  }
+
+  if (batchId) {
+    window.location.href = `verify.html?batch=${encodeURIComponent(batchId)}`;
+  } else {
+    alert("Could not extract a valid Batch ID from this QR code.");
+  }
+}
+
+/**
+ * Initializes a Camera & File Upload QR scanner
+ */
+function initQrScanner({
+  readerElementId,
+  startCameraBtnId,
+  fileInputId,
+  scannerBoxId,
+  closeCameraBtnId
+}) {
+  let html5QrCode = null;
+
+  const startBtn = document.getElementById(startCameraBtnId);
+  const fileInput = document.getElementById(fileInputId);
+  const scannerBox = document.getElementById(scannerBoxId);
+  const closeBtn = document.getElementById(closeCameraBtnId);
+
+  // 1. File Upload Scanner
+  if (fileInput) {
+    fileInput.addEventListener("change", async (e) => {
+      if (!e.target.files || e.target.files.length === 0) return;
+      const file = e.target.files[0];
+      const scanner = new Html5Qrcode(readerElementId);
+      try {
+        const decodedText = await scanner.scanFile(file, true);
+        handleDecodedQr(decodedText);
+      } catch (err) {
+        alert("No valid QR code detected in this image. Please upload a clear photo of the medicine box QR sticker.");
+      }
+    });
+  }
+
+  // 2. Camera Scanner
+  if (startBtn && scannerBox) {
+    startBtn.addEventListener("click", async () => {
+      scannerBox.classList.remove("hidden");
+      html5QrCode = new Html5Qrcode(readerElementId);
+      try {
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => {
+            html5QrCode.stop().then(() => {
+              scannerBox.classList.add("hidden");
+              handleDecodedQr(decodedText);
+            });
+          },
+          (errorMessage) => {}
+        );
+      } catch (err) {
+        alert("Could not access camera. Please allow camera permissions or upload an image instead.");
+        scannerBox.classList.add("hidden");
+      }
+    });
+  }
+
+  // 3. Close Camera
+  if (closeBtn && scannerBox) {
+    closeBtn.addEventListener("click", async () => {
+      if (html5QrCode) {
+        try {
+          await html5QrCode.stop();
+        } catch (e) {}
+      }
+      scannerBox.classList.add("hidden");
+    });
+  }
+}
+
+
