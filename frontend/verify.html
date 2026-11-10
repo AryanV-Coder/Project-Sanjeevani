@@ -24,7 +24,7 @@
         <span class="role-pill" id="userRolePill">Detecting...</span>
         <span class="address-pill" id="userAddressPill">0x...</span>
       </div>
-      <button id="connectWalletBtn" class="btn btn-outline" style="font-size:0.85rem; padding:6px 14px;">Connect Rabby Wallet</button>
+      <button id="connectWalletBtn" class="btn btn-outline" style="font-size:0.85rem; padding:6px 14px;">Connect Wallet</button>
     </div>
   </header>
 
@@ -49,7 +49,7 @@
       </div>
 
       <div id="distAuthWarning" class="auth-warning hidden">
-        ⚠️ <strong>Access Denied:</strong> Your connected wallet is not an authorized Distributor. Please switch accounts in Rabby Wallet.
+        ⚠️ <strong>Access Denied:</strong> Your connected wallet is not an authorized Distributor. Please switch accounts in your wallet.
       </div>
 
       <form id="transitForm" class="form-grid">
@@ -315,7 +315,7 @@
         const aiResult = await res.json();
         const imageCID = aiResult.imageCID;
 
-        showAlert("Step 2/2: AI check passed! Please sign transaction in Rabby Wallet...", "info");
+        showAlert("Step 2/2: AI check passed! Please sign transaction in your wallet...", "info");
         const intTemp = Math.round(temp);
         const tx = await sharedContract.updateTransit(currentBatchId, location, intTemp, imageCID);
 

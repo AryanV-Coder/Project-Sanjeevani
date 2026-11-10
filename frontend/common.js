@@ -41,7 +41,7 @@ function getWeb3Provider() {
 async function connectWallet() {
   const ethProvider = getWeb3Provider();
   if (!ethProvider) {
-    alert("Rabby Wallet (or Web3 wallet) is not installed. Please install Rabby Wallet extension.");
+    alert("No Web3 wallet detected. Please install Rabby Wallet or MetaMask extension.");
     return null;
   }
 
@@ -65,7 +65,7 @@ async function connectWallet() {
     }
   } catch (err) {
     console.error("Wallet error:", err);
-    showAlert("Failed to connect Rabby Wallet: " + (err.message || err), "danger");
+    showAlert("Failed to connect wallet: " + (err.message || err), "danger");
   }
   return null;
 }

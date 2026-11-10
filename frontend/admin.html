@@ -26,7 +26,7 @@
         <span class="role-pill" id="userRolePill">Detecting...</span>
         <span class="address-pill" id="userAddressPill">0x...</span>
       </div>
-      <button id="connectWalletBtn" class="btn btn-primary" style="font-size:0.85rem; padding:6px 14px;">Connect Rabby Wallet</button>
+      <button id="connectWalletBtn" class="btn btn-primary" style="font-size:0.85rem; padding:6px 14px;">Connect Wallet</button>
     </div>
   </header>
 
@@ -197,7 +197,7 @@
       }
 
       try {
-        showAlert("Please approve transaction in Rabby Wallet...", "info");
+        showAlert("Please approve transaction in your wallet...", "info");
         let tx;
         if (roleType === "manufacturer") {
           tx = await sharedContract.setManufacturer(address, status);
