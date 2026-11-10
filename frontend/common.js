@@ -29,16 +29,24 @@ async function loadConfig() {
 }
 
 /**
- * Initializes MetaMask connection
+ * Gets injected Web3 provider (prioritizes Rabby Wallet)
  */
-async function connectMetaMask() {
-  if (!window.ethereum) {
-    alert("MetaMask is not installed. Please install MetaMask to use Web3 features.");
+function getWeb3Provider() {
+  return window.rabby || window.ethereum || null;
+}
+
+/**
+ * Initializes Rabby / Web3 Wallet connection
+ */
+async function connectWallet() {
+  const ethProvider = getWeb3Provider();
+  if (!ethProvider) {
+    alert("Rabby Wallet (or Web3 wallet) is not installed. Please install Rabby Wallet extension.");
     return null;
   }
 
   try {
-    sharedProvider = new ethers.BrowserProvider(window.ethereum);
+    sharedProvider = new ethers.BrowserProvider(ethProvider);
     const accounts = await sharedProvider.send("eth_requestAccounts", []);
     if (accounts.length > 0) {
       sharedAddress = accounts[0];
@@ -56,18 +64,22 @@ async function connectMetaMask() {
       return { address: sharedAddress, role: sharedRole, contract: sharedContract };
     }
   } catch (err) {
-    console.error("MetaMask error:", err);
-    showAlert("Failed to connect MetaMask: " + (err.message || err), "danger");
+    console.error("Wallet error:", err);
+    showAlert("Failed to connect Rabby Wallet: " + (err.message || err), "danger");
   }
   return null;
 }
+
+// Backwards-compatible alias
+const connectMetaMask = connectWallet;
 
 /**
  * Checks if user is already connected in this browser session
  */
 async function autoDetectWallet() {
-  if (window.ethereum) {
-    sharedProvider = new ethers.BrowserProvider(window.ethereum);
+  const ethProvider = getWeb3Provider();
+  if (ethProvider) {
+    sharedProvider = new ethers.BrowserProvider(ethProvider);
     const accounts = await sharedProvider.listAccounts();
     if (accounts.length > 0) {
       sharedAddress = accounts[0].address;
@@ -83,8 +95,8 @@ async function autoDetectWallet() {
       updateNavbarWallet();
     }
 
-    // Auto-update UI if user switches accounts in MetaMask
-    window.ethereum.on("accountsChanged", async (newAccounts) => {
+    // Auto-update UI if user switches accounts in Rabby Wallet
+    ethProvider.on("accountsChanged", async (newAccounts) => {
       if (newAccounts.length > 0) {
         sharedAddress = newAccounts[0];
         sharedSigner = await sharedProvider.getSigner();
@@ -106,6 +118,7 @@ async function autoDetectWallet() {
     });
   }
 }
+
 
 /**
  * Queries smart contract on-chain to determine role
