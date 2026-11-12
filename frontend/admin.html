@@ -6,8 +6,6 @@
   <title>Admin Portal | Sanjeevani</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
-  <!-- HTML5 QR Code Scanner Library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 
@@ -22,10 +20,11 @@
     </a>
     <div class="nav-actions">
       <a href="index.html" class="nav-link">← Home</a>
-      <div id="walletBadge" class="wallet-badge hidden">
+      <div id="walletBadge" class="wallet-badge hidden" title="Wallet info" role="button" tabindex="0">
         <span class="role-pill" id="userRolePill">Detecting...</span>
         <span class="address-pill" id="userAddressPill">0x...</span>
       </div>
+      <button id="logoutWalletBtn" class="btn btn-outline hidden" style="font-size:0.8rem; padding:5px 12px; color:var(--danger); border-color:#fecdd3;">Log out</button>
       <button id="connectWalletBtn" class="btn btn-primary" style="font-size:0.85rem; padding:6px 14px;">Connect Wallet</button>
     </div>
   </header>
@@ -34,15 +33,30 @@
 
     <div id="statusAlert" class="alert hidden" role="alert"></div>
 
-    <div class="card">
+    <!-- 1. NOT CONNECTED STATE (Default until wallet is connected) -->
+    <div id="unconnectedCard" class="card" style="text-align:center; padding:48px 24px;">
+      <h2 style="font-size:1.5rem; margin-bottom:8px;">Connect Administrator Wallet</h2>
+      <p style="color:var(--text-muted); max-width:480px; margin:0 auto 24px;">
+        Connect your Web3 wallet (MetaMask or Rabby). Access to grant or revoke supply-chain permissions is restricted to the Contract Admin.
+      </p>
+      <button id="btnPromptConnect" class="btn btn-primary" style="font-size:1rem; padding:12px 28px;">Connect Wallet</button>
+    </div>
+
+    <!-- 2. UNAUTHORIZED STATE -->
+    <div id="unauthorizedCard" class="card hidden" style="text-align:center; padding:40px 24px; border:2px solid #fecdd3; background:#fff1f2;">
+      <h2 style="color:var(--danger); margin-bottom:8px;">Access Denied</h2>
+      <p id="unauthorizedText" style="color:#9f1239; margin-bottom:20px; font-weight:500;">
+        Your connected wallet is not the Contract Administrator.
+      </p>
+      <p style="color:#9f1239; font-size:0.85rem;">Switch account from the MetaMask or Rabby extension in your browser toolbar, or go back to the home page.</p>
+      <a href="index.html" class="btn btn-outline" style="margin-top:16px;">← Back to Home</a>
+    </div>
+
+    <!-- 3. ADMIN RBAC PANEL (Visible when authorized) -->
+    <div id="adminPanel" class="card hidden">
       <div class="card-header">
         <h2>Supply Chain Access Control (RBAC)</h2>
         <p class="card-desc">Grant or revoke cryptographic permissions for Manufacturers and Distributors on the smart contract.</p>
-      </div>
-
-      <!-- Auth Warning -->
-      <div id="adminAuthWarning" class="auth-warning hidden">
-        ⚠️ <strong>Access Denied:</strong> Your connected wallet is not the Contract Admin.
       </div>
 
       <form id="adminRoleForm" class="form-grid">
@@ -73,35 +87,8 @@
       </form>
     </div>
 
-    <!-- Quick Batch Verification / Inspection for Admin -->
-    <div class="card">
-      <div class="card-header">
-        <h2>🔍 Inspect & Verify Any Batch</h2>
-        <p class="card-desc">Inspect any medicine batch's on-chain history, audit distributor checkpoints, or scan physical box QR codes.</p>
-      </div>
-
-      <div class="search-row">
-        <input type="text" id="adminVerifyBatchId" placeholder="Enter Batch ID (e.g. VAX-2026-001)" />
-        <button type="button" id="btnAdminVerify" class="btn btn-accent">Verify Batch</button>
-      </div>
-
-      <div class="qr-actions-row">
-        <button type="button" id="btnStartCameraAdmin" class="btn btn-outline">📷 Scan with Camera</button>
-        <label class="btn btn-outline" style="cursor:pointer; margin-bottom:0;">
-          📁 Upload QR Image
-          <input type="file" id="qrFileInputAdmin" accept="image/*" style="display:none;" />
-        </label>
-      </div>
-
-      <!-- Live Camera Scanner Box (Hidden by default) -->
-      <div id="scannerBoxAdmin" class="scanner-box hidden">
-        <div id="qrReaderAdmin" class="scanner-preview"></div>
-        <button type="button" id="btnCloseCameraAdmin" class="btn btn-outline" style="margin-top:12px;">Close Camera</button>
-      </div>
-    </div>
-
-    <!-- Active Deployed Roles Info -->
-    <div class="card" style="background:#f8fafc;">
+    <!-- Active Deployed Roles Info (Visible when authorized) -->
+    <div id="rolesCard" class="card hidden" style="background:#f8fafc;">
       <h3 style="font-size:1.05rem; margin-bottom:8px;">Current Bootstrapped Roles (Ganache CLI)</h3>
       <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
         These pre-authorized accounts were configured automatically during contract deployment:
@@ -118,43 +105,63 @@
     document.addEventListener("DOMContentLoaded", async () => {
       const cfg = await loadConfig();
       await autoDetectWallet();
-      validateAdminAccess();
       displayConfiguredRoles(cfg);
+      renderAdminPortalState();
 
-      document.getElementById("connectWalletBtn").addEventListener("click", async () => {
-        await connectMetaMask();
-        validateAdminAccess();
-      });
+      // Navbar buttons
+      document.getElementById("connectWalletBtn").addEventListener("click", handleConnect);
+      document.getElementById("walletBadge").addEventListener("click", openWalletModal);
 
+      // Card action buttons
+      document.getElementById("btnPromptConnect").addEventListener("click", handleConnect);
+
+      // Form submit
       document.getElementById("adminRoleForm").addEventListener("submit", handleRoleUpdate);
-
-      // Manual verify button
-      document.getElementById("btnAdminVerify").addEventListener("click", () => {
-        const id = document.getElementById("adminVerifyBatchId").value.trim();
-        if (id) window.location.href = `verify.html?batch=${encodeURIComponent(id)}`;
-      });
-
-      // Initialize Camera & File QR Scanner
-      initQrScanner({
-        readerElementId: "qrReaderAdmin",
-        startCameraBtnId: "btnStartCameraAdmin",
-        fileInputId: "qrFileInputAdmin",
-        scannerBoxId: "scannerBoxAdmin",
-        closeCameraBtnId: "btnCloseCameraAdmin"
-      });
     });
 
-    function validateAdminAccess() {
-      const warning = document.getElementById("adminAuthWarning");
-      const submitBtn = document.getElementById("updateRoleBtn");
-
-      const isAllowed = sharedRole === "admin";
-      warning.classList.toggle("hidden", isAllowed);
-      submitBtn.disabled = !isAllowed;
+    async function handleConnect() {
+      await connectWallet();
+      renderAdminPortalState();
     }
 
     function onAccountChanged(addr, role) {
-      validateAdminAccess();
+      // Account switch redirects to home automatically via common.js
+    }
+
+    function renderAdminPortalState() {
+      const unconnected = document.getElementById("unconnectedCard");
+      const unauthorized = document.getElementById("unauthorizedCard");
+      const unauthText = document.getElementById("unauthorizedText");
+      const adminPanel = document.getElementById("adminPanel");
+      const rolesCard = document.getElementById("rolesCard");
+
+      // Hide all states first
+      unconnected.classList.add("hidden");
+      unauthorized.classList.add("hidden");
+      adminPanel.classList.add("hidden");
+      rolesCard.classList.add("hidden");
+
+      // 1. Not connected
+      if (!sharedAddress) {
+        unconnected.classList.remove("hidden");
+        return;
+      }
+
+      // 2. Connected as Admin
+      if (sharedRole === "admin") {
+        adminPanel.classList.remove("hidden");
+        rolesCard.classList.remove("hidden");
+        return;
+      }
+
+      // 3. Unauthorized
+      unauthorized.classList.remove("hidden");
+      const addrStr = `${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}`;
+      if (sharedRole === "manufacturer") {
+        unauthText.textContent = `Connected as Manufacturer (${addrStr}). This portal is for the Contract Admin only.`;
+      } else {
+        unauthText.textContent = `Connected wallet (${addrStr}) is not the Contract Administrator. Please switch to the Admin wallet (Account 0).`;
+      }
     }
 
     function displayConfiguredRoles(cfg) {

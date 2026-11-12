@@ -6,8 +6,6 @@
   <title>Sanjeevani | Decentralized Cold-Chain Tracking</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
-  <!-- HTML5 QR Code Scanner Library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 
@@ -21,11 +19,12 @@
       </div>
     </a>
     <div class="nav-actions">
-      <div id="walletBadge" class="wallet-badge hidden">
+      <div id="walletBadge" class="wallet-badge hidden" title="Wallet info" onclick="openWalletModal()" role="button" tabindex="0">
         <span class="role-pill" id="userRolePill">Detecting...</span>
         <span class="address-pill" id="userAddressPill">0x...</span>
       </div>
-      <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+      <button id="logoutWalletBtn" class="btn btn-outline hidden" onclick="disconnectWallet()" style="font-size:0.8rem; padding:5px 12px; color:var(--danger); border-color:#fecdd3;">Log out</button>
+      <button id="connectWalletBtn" class="btn btn-primary" onclick="connectWallet()">Connect Wallet</button>
     </div>
   </header>
 
@@ -33,95 +32,130 @@
 
     <div id="statusAlert" class="alert hidden" role="alert"></div>
 
-    <!-- Quick Batch Verification Search -->
-    <section class="search-card">
-      <h3>🔍 Check Medicine Authenticity</h3>
-      <p>Patients, doctors, and pharmacists: verify your medicine by typing the Batch ID, scanning the QR sticker with your camera, or uploading a QR photo.</p>
-      
-      <form id="searchBatchForm" class="search-row">
-        <input type="text" id="searchBatchId" placeholder="Enter Batch ID (e.g. VAX-2026-001)" required />
-        <button type="submit" class="btn btn-accent">Verify Medicine</button>
-      </form>
+    <!-- Header -->
+    <div style="text-align:center; margin-bottom:32px;">
+      <h2 style="font-size:1.6rem; margin-bottom:6px;">Enterprise & Staff Portals</h2>
+      <p id="homeSubtitle" style="color:var(--text-muted); font-size:0.95rem;">
+        Connect your Web3 wallet to unlock your authorized portal.
+      </p>
+    </div>
 
-      <div class="qr-actions-row">
-        <button type="button" id="btnStartCameraHome" class="btn btn-outline" style="background:rgba(255,255,255,0.2); color:white; border-color:rgba(255,255,255,0.4);">
-          📷 Scan with Camera
-        </button>
-        <label class="btn btn-outline" style="background:rgba(255,255,255,0.2); color:white; border-color:rgba(255,255,255,0.4); cursor:pointer; margin-bottom:0;">
-          📁 Upload QR Image
-          <input type="file" id="qrFileInputHome" accept="image/*" style="display:none;" />
-        </label>
+    <!-- Portal Cards Grid -->
+    <div class="portal-grid">
+
+      <!-- Manufacturer Card -->
+      <div id="portalMfg" class="portal-box portal-disabled" onclick="handleMfgClick()" role="button" tabindex="0">
+        <div class="portal-title">Manufacturer Portal</div>
+        <div class="portal-text">Register new pharmaceutical batches on-chain, configure safe temperature rules, and generate physical QR stickers.</div>
+        <span class="portal-action" id="portalMfgAction">Connect wallet for access</span>
       </div>
 
-      <!-- Live Camera Scanner Box (Hidden by default) -->
-      <div id="scannerBoxHome" class="scanner-box hidden" style="margin-top:16px;">
-        <div id="qrReaderHome" class="scanner-preview"></div>
-        <button type="button" id="btnCloseCameraHome" class="btn btn-outline" style="margin-top:12px;">Close Camera</button>
-      </div>
-    </section>
-
-    <!-- Staff Portals Section -->
-    <section>
-      <div class="card-header">
-        <h2>Enterprise & Staff Portals</h2>
-        <p class="card-desc">Select your authorized organization role below. Authentication is handled via your Web3 wallet (Rabby or MetaMask).</p>
+      <!-- Admin Card -->
+      <div id="portalAdmin" class="portal-box portal-disabled" onclick="handleAdminClick()" role="button" tabindex="0">
+        <div class="portal-title">Administrator Portal</div>
+        <div class="portal-text">Manage supply-chain permissions. Whitelist or revoke wallet addresses for Manufacturers and Logistics Distributors.</div>
+        <span class="portal-action" id="portalAdminAction">Connect wallet for access</span>
       </div>
 
-      <div class="portal-grid">
-        <!-- Manufacturer Box -->
-        <a href="manufacturer.html" class="portal-box">
-          <div class="portal-icon">🏭</div>
-          <div class="portal-title">Manufacturer Portal</div>
-          <div class="portal-text">Register new pharmaceutical batches on-chain, configure safe temperature rules, and generate physical QR stickers.</div>
-          <span style="color:var(--primary); font-weight:600; font-size:0.85rem; margin-top:6px;">Open Portal →</span>
-        </a>
-
-        <!-- Admin Box -->
-        <a href="admin.html" class="portal-box">
-          <div class="portal-icon">🏛️</div>
-          <div class="portal-title">Administrator Portal</div>
-          <div class="portal-text">Manage supply-chain permissions. Whitelist or revoke wallet addresses for Manufacturers and Logistics Distributors.</div>
-          <span style="color:var(--primary); font-weight:600; font-size:0.85rem; margin-top:6px;">Open Portal →</span>
-        </a>
-      </div>
-
-      <!-- Distributor Notice -->
-      <div class="card" style="background: #f8fafc; border-style: dashed;">
-        <h3 style="font-size: 1.05rem; margin-bottom: 4px;">🚚 Are you a Logistics Distributor?</h3>
-        <p style="font-size: 0.88rem; color: var(--text-muted);">
-          Distributors update cold-chain checkpoints directly in the field by <strong>scanning the physical QR code</strong> on the medicine box. The scan automatically opens the verification portal with transit logging enabled.
-        </p>
-      </div>
-    </section>
+    </div>
 
   </main>
 
   <script src="common.js"></script>
   <script>
+    async function handleMfgClick() {
+      if (!sharedAddress) {
+        showAlert("Connecting your Web3 wallet (MetaMask / Rabby)...", "info");
+        const res = await connectWallet();
+        renderHomeState();
+        if (res && (sharedRole === "manufacturer" || sharedRole === "admin")) {
+          window.location.href = "manufacturer.html";
+        }
+        return;
+      }
+
+      if (sharedRole === "manufacturer" || sharedRole === "admin") {
+        window.location.href = "manufacturer.html";
+      } else {
+        showAlert(`Access restricted: Manufacturer Portal requires Manufacturer authorization. Connected account (${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}) has role: ${sharedRole.toUpperCase()}. Please switch to Account 1 in MetaMask or Rabby.`, "danger");
+      }
+    }
+
+    async function handleAdminClick() {
+      if (!sharedAddress) {
+        showAlert("Connecting your Web3 wallet (MetaMask / Rabby)...", "info");
+        const res = await connectWallet();
+        renderHomeState();
+        if (res && sharedRole === "admin") {
+          window.location.href = "admin.html";
+        }
+        return;
+      }
+
+      if (sharedRole === "admin") {
+        window.location.href = "admin.html";
+      } else {
+        showAlert(`Access restricted: Administrator Portal requires Administrator authorization. Connected account (${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}) has role: ${sharedRole.toUpperCase()}. Please switch to Account 0 in MetaMask or Rabby.`, "danger");
+      }
+    }
+
     document.addEventListener("DOMContentLoaded", async () => {
+      renderHomeState();
       await loadConfig();
       await autoDetectWallet();
-
-      document.getElementById("connectWalletBtn").addEventListener("click", connectMetaMask);
-
-      // Search form handler
-      document.getElementById("searchBatchForm").addEventListener("submit", (e) => {
-        e.preventDefault();
-        const batchId = document.getElementById("searchBatchId").value.trim();
-        if (batchId) {
-          window.location.href = `verify.html?batch=${encodeURIComponent(batchId)}`;
-        }
-      });
-
-      // Initialize Camera & File QR Scanner
-      initQrScanner({
-        readerElementId: "qrReaderHome",
-        startCameraBtnId: "btnStartCameraHome",
-        fileInputId: "qrFileInputHome",
-        scannerBoxId: "scannerBoxHome",
-        closeCameraBtnId: "btnCloseCameraHome"
-      });
+      renderHomeState();
     });
+
+    function onAccountChanged(addr, role) {
+      renderHomeState();
+    }
+
+    function renderHomeState() {
+      const mfgCard = document.getElementById("portalMfg");
+      const adminCard = document.getElementById("portalAdmin");
+      const mfgAction = document.getElementById("portalMfgAction");
+      const adminAction = document.getElementById("portalAdminAction");
+      const subtitle = document.getElementById("homeSubtitle");
+
+      // Reset to disabled
+      mfgCard.classList.add("portal-disabled");
+      adminCard.classList.add("portal-disabled");
+      mfgCard.classList.remove("portal-active");
+      adminCard.classList.remove("portal-active");
+
+      if (!sharedAddress) {
+        // No wallet connected — both locked
+        mfgAction.innerHTML = "Connect wallet for access";
+        adminAction.innerHTML = "Connect wallet for access";
+        subtitle.textContent = "Connect your Web3 wallet to unlock your authorized portal.";
+        return;
+      }
+
+      const addrStr = `${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}`;
+
+      if (sharedRole === "manufacturer") {
+        // Manufacturer: only manufacturer option is available, administrator option is disabled
+        mfgCard.classList.remove("portal-disabled");
+        mfgCard.classList.add("portal-active");
+        mfgAction.innerHTML = `<span style="color:var(--success); font-weight:600;">Open Manufacturer Portal →</span>`;
+        adminAction.innerHTML = `<span style="color:var(--text-muted);">Administrator access only</span>`;
+        subtitle.innerHTML = `Connected as <strong>Manufacturer</strong> (${addrStr}). Access unlocked for Manufacturer Portal.`;
+
+      } else if (sharedRole === "admin") {
+        // Admin: only administrator option is available, manufacturer option is disabled
+        adminCard.classList.remove("portal-disabled");
+        adminCard.classList.add("portal-active");
+        adminAction.innerHTML = `<span style="color:var(--success); font-weight:600;">Open Administrator Portal →</span>`;
+        mfgAction.innerHTML = `<span style="color:var(--text-muted);">Manufacturer access only</span>`;
+        subtitle.innerHTML = `Connected as <strong>Administrator</strong> (${addrStr}). Access unlocked for Administrator Portal.`;
+
+      } else {
+        // Unauthorized account connected: disable both options and display message "Connect account for access."
+        mfgAction.innerHTML = `<span style="color:var(--danger); font-weight:600;">Connect account for access</span>`;
+        adminAction.innerHTML = `<span style="color:var(--danger); font-weight:600;">Connect account for access</span>`;
+        subtitle.innerHTML = `<span style="color:var(--danger); font-weight:600;">Connect account for access.</span> Wallet (${addrStr}) is not authorized.`;
+      }
+    }
   </script>
 </body>
 </html>

@@ -2,8 +2,35 @@
 // SANJEEVANI SHARED WEB3 & BACKEND UTILITIES
 // ==========================================
 
-// Automatically detect host IP so mobile phones on the same Wi-Fi connect seamlessly
 const BACKEND_URL = `${window.location.protocol}//${window.location.hostname}:8000`;
+
+// Hardcoded deployment bootstrap roles (zero-latency, offline-safe fallback)
+const BOOTSTRAP_ROLES = {
+  admin: "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+  manufacturer: "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+  distributors: [
+    "0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b",
+    "0xE11BA2b4D45Eaed5996Cd0823791E0C93114882d",
+    "0xd03ea8624C8C5987235048901fB614fDcA89b117",
+    "0x95cED938F7991cd0dFcb48F0a06a40FA1aF46EBC"
+  ]
+};
+
+// EIP-6963 Multi-Wallet Discovery: MetaMask Priority 1, Rabby Priority 2
+let eip6963Providers = {
+  metamask: null,
+  rabby: null
+};
+
+window.addEventListener("eip6963:announceProvider", (event) => {
+  const { info, provider } = event.detail;
+  if (info && info.rdns === "io.metamask") {
+    eip6963Providers.metamask = provider;
+  } else if (info && info.rdns === "io.rabby") {
+    eip6963Providers.rabby = provider;
+  }
+});
+window.dispatchEvent(new Event("eip6963:requestProvider"));
 
 let sharedConfig = null;
 let sharedProvider = null;
@@ -29,38 +56,76 @@ async function loadConfig() {
 }
 
 /**
- * Gets injected Web3 provider (prioritizes Rabby Wallet)
+ * Gets injected Web3 provider: STRICTLY MetaMask first, Rabby secondary
  */
 function getWeb3Provider() {
-  return window.rabby || window.ethereum || null;
+  // 1. EIP-6963 MetaMask (Priority 1)
+  if (eip6963Providers.metamask) {
+    return eip6963Providers.metamask;
+  }
+
+  // 2. window.ethereum.providers: find MetaMask (Priority 1)
+  if (window.ethereum && Array.isArray(window.ethereum.providers) && window.ethereum.providers.length) {
+    const mm = window.ethereum.providers.find(p => p.isMetaMask && !p.isRabby);
+    if (mm) return mm;
+  }
+
+  // 3. window.ethereum pure MetaMask (Priority 1)
+  if (window.ethereum && window.ethereum.isMetaMask && !window.ethereum.isRabby) {
+    return window.ethereum;
+  }
+
+  // 4. EIP-6963 Rabby (Priority 2)
+  if (eip6963Providers.rabby) {
+    return eip6963Providers.rabby;
+  }
+
+  // 5. Dedicated window.rabby (Priority 2)
+  if (window.rabby) {
+    return window.rabby;
+  }
+
+  // 6. window.ethereum with isRabby (Priority 2)
+  if (window.ethereum && window.ethereum.isRabby) {
+    return window.ethereum;
+  }
+
+  // 7. General fallback
+  return window.ethereum || null;
+}
+
+function getWalletName() {
+  const p = getWeb3Provider();
+  if (!p) return "Web3 Wallet";
+  if (p.isMetaMask && !p.isRabby) return "MetaMask";
+  if (p.isRabby) return "Rabby";
+  return "Web3 Wallet";
 }
 
 /**
- * Initializes Rabby / Web3 Wallet connection
+ * Connects the wallet (prioritizes MetaMask, Rabby secondary)
  */
 async function connectWallet() {
   const ethProvider = getWeb3Provider();
   if (!ethProvider) {
-    alert("No Web3 wallet detected. Please install Rabby Wallet or MetaMask extension.");
+    alert("No Web3 wallet detected. Please install MetaMask or Rabby Wallet extension in this browser.");
     return null;
   }
 
   try {
     sharedProvider = new ethers.BrowserProvider(ethProvider);
-    const accounts = await sharedProvider.send("eth_requestAccounts", []);
-    if (accounts.length > 0) {
+    const accounts = await ethProvider.request({ method: "eth_requestAccounts" });
+    if (accounts && accounts.length > 0) {
       sharedAddress = accounts[0];
       sharedSigner = await sharedProvider.getSigner();
-
       if (sharedConfig) {
-        sharedContract = new ethers.Contract(
-          sharedConfig.contractAddress,
-          sharedConfig.abi,
-          sharedSigner
-        );
+        sharedContract = new ethers.Contract(sharedConfig.contractAddress, sharedConfig.abi, sharedSigner);
         sharedRole = await detectRole(sharedContract, sharedAddress);
       }
       updateNavbarWallet();
+      if (typeof onAccountChanged === "function") {
+        onAccountChanged(sharedAddress, sharedRole);
+      }
       return { address: sharedAddress, role: sharedRole, contract: sharedContract };
     }
   } catch (err) {
@@ -74,95 +139,226 @@ async function connectWallet() {
 const connectMetaMask = connectWallet;
 
 /**
- * Checks if user is already connected in this browser session
+ * Disconnects the wallet and redirects to home page
+ */
+function disconnectWallet() {
+  sharedAddress = null;
+  sharedSigner = null;
+  sharedRole = "guest";
+  sharedContract = null;
+  updateNavbarWallet();
+  closeWalletModal();
+
+  // Redirect to home if not already there
+  const path = window.location.pathname;
+  const isHome = path === "/" || path.endsWith("/index.html") || path.endsWith("index.html") || path === "";
+  if (!isHome) {
+    window.location.href = "index.html";
+  } else if (typeof onAccountChanged === "function") {
+    onAccountChanged(null, "guest");
+  }
+}
+
+/**
+ * Auto-detect wallet on page load + listen for account switches
  */
 async function autoDetectWallet() {
   const ethProvider = getWeb3Provider();
-  if (ethProvider) {
-    sharedProvider = new ethers.BrowserProvider(ethProvider);
+  if (!ethProvider) return;
+
+  sharedProvider = new ethers.BrowserProvider(ethProvider);
+  try {
     const accounts = await sharedProvider.listAccounts();
     if (accounts.length > 0) {
       sharedAddress = accounts[0].address;
       sharedSigner = await sharedProvider.getSigner();
       if (sharedConfig) {
-        sharedContract = new ethers.Contract(
-          sharedConfig.contractAddress,
-          sharedConfig.abi,
-          sharedSigner
-        );
+        sharedContract = new ethers.Contract(sharedConfig.contractAddress, sharedConfig.abi, sharedSigner);
         sharedRole = await detectRole(sharedContract, sharedAddress);
       }
       updateNavbarWallet();
-    }
-
-    // Auto-update UI if user switches accounts in Rabby Wallet
-    ethProvider.on("accountsChanged", async (newAccounts) => {
-      if (newAccounts.length > 0) {
-        sharedAddress = newAccounts[0];
-        sharedSigner = await sharedProvider.getSigner();
-        if (sharedContract) {
-          sharedRole = await detectRole(sharedContract, sharedAddress);
-        }
-        updateNavbarWallet();
-        if (typeof onAccountChanged === "function") {
-          onAccountChanged(sharedAddress, sharedRole);
-        }
-      } else {
-        sharedAddress = null;
-        sharedRole = "guest";
-        updateNavbarWallet();
-        if (typeof onAccountChanged === "function") {
-          onAccountChanged(null, "guest");
-        }
+      if (typeof onAccountChanged === "function") {
+        onAccountChanged(sharedAddress, sharedRole);
       }
-    });
+    } else {
+      updateNavbarWallet();
+    }
+  } catch (e) {
+    updateNavbarWallet();
   }
+
+  // When user switches account in Rabby toolbar → redirect to home so portal cards re-evaluate
+  ethProvider.on("accountsChanged", async (newAccounts) => {
+    if (newAccounts.length > 0) {
+      sharedAddress = newAccounts[0];
+      sharedSigner = await sharedProvider.getSigner();
+      if (sharedConfig) {
+        sharedContract = new ethers.Contract(sharedConfig.contractAddress, sharedConfig.abi, sharedSigner);
+        sharedRole = await detectRole(sharedContract, sharedAddress);
+      }
+    } else {
+      sharedAddress = null;
+      sharedSigner = null;
+      sharedRole = "guest";
+    }
+    updateNavbarWallet();
+
+    // Always redirect to home on account switch so user picks the right portal
+    const path = window.location.pathname;
+    const isHome = path === "/" || path.endsWith("/index.html") || path.endsWith("index.html") || path === "";
+    if (!isHome) {
+      window.location.href = "index.html";
+    } else if (typeof onAccountChanged === "function") {
+      onAccountChanged(sharedAddress, sharedRole);
+    }
+  });
 }
 
-
 /**
- * Queries smart contract on-chain to determine role
+ * Queries role with fallback to configuration roles
  */
 async function detectRole(contract, address) {
-  if (!contract || !address) return "guest";
-  try {
-    const admin = await contract.admin();
-    if (admin.toLowerCase() === address.toLowerCase()) return "admin";
+  if (!address) return "guest";
+  const cleanAddr = address.toLowerCase();
 
-    const isMfg = await contract.manufacturers(address);
-    if (isMfg) return "manufacturer";
+  // 1. Instant bootstrap lookup (hardcoded Ganache addresses, zero latency)
+  if (BOOTSTRAP_ROLES.admin.toLowerCase() === cleanAddr) return "admin";
+  if (BOOTSTRAP_ROLES.manufacturer.toLowerCase() === cleanAddr) return "manufacturer";
+  if (BOOTSTRAP_ROLES.distributors.some(d => d.toLowerCase() === cleanAddr)) return "distributor";
 
-    const isDist = await contract.distributors(address);
-    if (isDist) return "distributor";
-
-    return "guest";
-  } catch (err) {
-    console.error("Role query error:", err);
-    return "guest";
+  // 2. Fast, offline-proof lookup from deployment config
+  if (sharedConfig && sharedConfig.roles) {
+    const roles = sharedConfig.roles;
+    if (roles.admin && roles.admin.toLowerCase() === cleanAddr) return "admin";
+    if (roles.manufacturer && roles.manufacturer.toLowerCase() === cleanAddr) return "manufacturer";
+    if (roles.distributor && roles.distributor.toLowerCase() === cleanAddr) return "distributor";
+    if (Array.isArray(roles.distributors) && roles.distributors.some(d => d.toLowerCase() === cleanAddr)) return "distributor";
   }
+
+  // 3. Query smart contract on-chain for dynamic roles
+  if (contract) {
+    try {
+      const admin = await contract.admin();
+      if (admin && admin.toLowerCase() === cleanAddr) return "admin";
+      const isMfg = await contract.manufacturers(address);
+      if (isMfg) return "manufacturer";
+      const isDist = await contract.distributors(address);
+      if (isDist) return "distributor";
+    } catch (err) {
+      console.warn("On-chain role query warning:", err);
+    }
+  }
+
+  return "guest";
 }
 
 /**
- * Updates navbar wallet badge
+ * Updates navbar wallet badge, logout button, and connect button
  */
 function updateNavbarWallet() {
   const btn = document.getElementById("connectWalletBtn");
   const badge = document.getElementById("walletBadge");
   const rolePill = document.getElementById("userRolePill");
   const addrPill = document.getElementById("userAddressPill");
-
-  if (!btn || !badge) return;
+  const logoutBtn = document.getElementById("logoutWalletBtn");
 
   if (sharedAddress) {
-    btn.classList.add("hidden");
-    badge.classList.remove("hidden");
-    if (addrPill) addrPill.textContent = `${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}`;
-    if (rolePill) rolePill.textContent = sharedRole;
+    if (btn) btn.classList.add("hidden");
+    if (logoutBtn) logoutBtn.classList.remove("hidden");
+    if (badge) {
+      badge.classList.remove("hidden");
+      if (addrPill) addrPill.textContent = `${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}`;
+      if (rolePill) rolePill.textContent = sharedRole;
+    }
   } else {
-    btn.classList.remove("hidden");
-    badge.classList.add("hidden");
+    if (btn) btn.classList.remove("hidden");
+    if (logoutBtn) logoutBtn.classList.add("hidden");
+    if (badge) badge.classList.add("hidden");
   }
 }
+
+// Auto-bind logout button if present on page
+document.addEventListener("DOMContentLoaded", () => {
+  const logoutBtn = document.getElementById("logoutWalletBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", disconnectWallet);
+  }
+});
+
+
+// =============================================
+// IN-PAGE WALLET MODAL
+// =============================================
+
+/**
+ * Creates the wallet modal overlay in the DOM (called once on page load)
+ */
+function initWalletModal() {
+  if (document.getElementById("walletModal")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "walletModal";
+  overlay.className = "wm-overlay hidden";
+  overlay.innerHTML = `
+    <div class="wm-panel" onclick="event.stopPropagation()">
+      <div class="wm-header">
+        <span style="font-weight:700; font-size:1.05rem;">Wallet</span>
+        <button class="wm-close" onclick="closeWalletModal()" title="Close">&times;</button>
+      </div>
+      <div class="wm-body">
+        <div class="wm-role-badge" id="wmRoleBadge">guest</div>
+        <div class="wm-address" id="wmAddress">0x...</div>
+        <button class="wm-copy-btn" id="wmCopyBtn" title="Copy full address">Copy Address</button>
+        <div class="wm-divider"></div>
+        <p class="wm-hint">Connected with <strong id="wmWalletType">Web3 Wallet</strong>. To switch accounts, open your <strong>MetaMask</strong> or <strong>Rabby</strong> extension in your browser toolbar and select your account. This page will auto-update instantly.</p>
+        <div class="wm-divider"></div>
+        <button class="wm-disconnect-btn" id="wmDisconnectBtn">Disconnect Wallet</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Close when clicking backdrop
+  overlay.addEventListener("click", closeWalletModal);
+
+  // Copy address
+  document.getElementById("wmCopyBtn").addEventListener("click", () => {
+    if (sharedAddress) {
+      navigator.clipboard.writeText(sharedAddress).then(() => {
+        document.getElementById("wmCopyBtn").textContent = "Copied!";
+        setTimeout(() => { document.getElementById("wmCopyBtn").textContent = "Copy Address"; }, 1500);
+      });
+    }
+  });
+
+  // Disconnect
+  document.getElementById("wmDisconnectBtn").addEventListener("click", disconnectWallet);
+}
+
+function openWalletModal() {
+  initWalletModal();
+  const modal = document.getElementById("walletModal");
+  const badge = document.getElementById("wmRoleBadge");
+  const addr = document.getElementById("wmAddress");
+  const walletType = document.getElementById("wmWalletType");
+
+  if (badge) badge.textContent = sharedRole;
+  if (walletType) walletType.textContent = getWalletName();
+  if (addr && sharedAddress) {
+    addr.textContent = `${sharedAddress.slice(0, 10)}...${sharedAddress.slice(-8)}`;
+  }
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closeWalletModal() {
+  const modal = document.getElementById("walletModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+
+// =============================================
+// UTILITIES
+// =============================================
 
 function showAlert(msg, type = "info") {
   const alertBox = document.getElementById("statusAlert");
@@ -185,7 +381,6 @@ function escapeHtml(str) {
 
 /**
  * QR Code Decoding & Verification Helper
- * Extracts batch ID from scanned text/URL and redirects to verify.html
  */
 function handleDecodedQr(decodedText) {
   let batchId = decodedText.trim();
@@ -224,7 +419,6 @@ function initQrScanner({
   const scannerBox = document.getElementById(scannerBoxId);
   const closeBtn = document.getElementById(closeCameraBtnId);
 
-  // 1. File Upload Scanner
   if (fileInput) {
     fileInput.addEventListener("change", async (e) => {
       if (!e.target.files || e.target.files.length === 0) return;
@@ -239,7 +433,6 @@ function initQrScanner({
     });
   }
 
-  // 2. Camera Scanner
   if (startBtn && scannerBox) {
     startBtn.addEventListener("click", async () => {
       scannerBox.classList.remove("hidden");
@@ -263,17 +456,12 @@ function initQrScanner({
     });
   }
 
-  // 3. Close Camera
   if (closeBtn && scannerBox) {
     closeBtn.addEventListener("click", async () => {
       if (html5QrCode) {
-        try {
-          await html5QrCode.stop();
-        } catch (e) {}
+        try { await html5QrCode.stop(); } catch (e) {}
       }
       scannerBox.classList.add("hidden");
     });
   }
 }
-
-
