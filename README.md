@@ -1,4 +1,4 @@
-# ❄️ Sanjeevani – Decentralized Cold-Chain Tracking & Verification System
+# ❄️ Sanjeevani – Decentralized Cold-Chain Tracking & AI Verification System
 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.20-blue.svg)](https://soliditylang.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
@@ -6,100 +6,68 @@
 [![Ethers.js](https://img.shields.io/badge/Ethers.js-v6-627eea.svg)](https://docs.ethers.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Sanjeevani** is a unified, Web3-powered pharmaceutical supply chain verification system designed to track temperature-sensitive pharmaceuticals (such as vaccines and biologics) from the manufacturing plant to the end patient. 
+**Sanjeevani** is an end-to-end, decentralized pharmaceutical cold-chain verification platform designed to guarantee the physical integrity of temperature-sensitive medicines (vaccines, insulin, biologics, and mRNA treatments) from the manufacturer's sterile facility to the patient.
 
-It eliminates traditional centralized databases, credentials, and single points of failure by leveraging an Ethereum-compatible smart contract for **Role-Based Access Control (RBAC)**, **immutable safety rule enforcement**, and **chain-of-custody tracking**, paired with **AI/Computer Vision** to solve the physical-blockchain "Oracle problem."
-
----
-
-## 🚨 The Problem We Are Solving
-
-Temperature-sensitive pharmaceuticals—including life-saving vaccines (e.g., mRNA, COVID-19, polio), insulin, and biologics—require strict, uninterrupted temperature management throughout transit (typically $2^\circ\text{C}$ to $8^\circ\text{C}$ or deep-freeze at $-20^\circ\text{C}$ to $-70^\circ\text{C}$).
-
-The modern pharmaceutical supply chain faces **four critical systemic failures**:
-
-### 1. The Global Cold-Chain Wastage Crisis
-* According to the **World Health Organization (WHO)**, up to **50% of vaccines are wasted globally each year**, primarily due to cold-chain failures, power interruptions, and unmonitored logistics breakdowns.
-* Exposure to temperatures outside safe boundaries causes biological denaturation: vaccines lose immunogenic potency, rendering them therapeutically useless or causing severe adverse patient reactions.
-
-### 2. "Silent Spoilage" & Counterfeiting
-* **Thermally compromised pharmaceuticals look identical to safe ones.** A patient, doctor, or pharmacist receiving a spoiled vial cannot detect with the naked eye whether the medicine sat in a $35^\circ\text{C}$ delivery truck 48 hours prior.
-* Illegitimate suppliers exploit opaque supply lines to insert counterfeit, expired, or diverted stock into legal pharmacy channels.
-
-### 3. Centralized Database Tampering & Opaque Silos
-* Traditional logistics rely on centralized databases (SQL / MongoDB) managed by individual shipping vendors.
-* **Vulnerable to Data Manipulation:** If a driver notices a freezer failure mid-transit, an operator or supervisor can alter log entries in their private database to conceal the breach and avoid financial penalties.
-* **Credential Vulnerability:** Centralized accounts (passwords, JWTs, admin logins) are subject to phishing, credential stuffing, and unauthorized insider tampering.
-* **Zero Patient Visibility:** Patients and clinics are kept entirely in the dark, with no direct way to audit the batch's origin and transit history.
-
-### 4. The Blockchain "Oracle Problem" (*Garbage-In, Garbage-Out*)
-* While blockchains guarantee that records cannot be altered *after* they are written, **they cannot verify if the data entered was true in the physical world**.
-* If a negligent distributor types `4°C` into a blockchain portal while the freezer is actually at `22°C`, the blockchain immutably records a lie.
-* **Sanjeevani's Solution:** We eliminate manual self-reporting by pairing on-chain smart contract invariants with an **AI/Computer Vision OCR engine**. Field workers must submit an authentic photo of the physical gauge; the AI extracts the temperature reading directly from the image, cross-checks it against user input, and rejects forged data before it ever reaches the blockchain.
+It eliminates traditional centralized databases, mutable audit trails, and single points of failure by combining:
+1. **Ethereum Smart Contracts (`PharmaChain.sol`)** for on-chain Role-Based Access Control (RBAC), permanent safety invariants, and immutable milestone logging.
+2. **AI / Computer Vision (OCR)** to solve the blockchain "Oracle Problem" by extracting physical freezer gauge readings from photos before anchoring data to the blockchain.
+3. **Decentralized Storage (IPFS)** for storing cryptographic proof of thermometer photos.
+4. **Frictionless Patient Verification** requiring zero crypto knowledge, gas fees, or browser extensions.
 
 ---
 
-## 📌 Key Innovations & Features
+## 🚨 The Core Problem
 
-1. **Pure Blockchain Authentication (No Traditional Passwords)**
-   - Access to create batches and record checkpoints is governed entirely by cryptographic wallet addresses on-chain.
-   - Admin authorizes specific addresses for **Manufacturers** and **Distributors**. Unauthorized wallets are blocked by Solidity modifiers (`onlyManufacturer`, `onlyDistributor`, `onlyAdmin`).
+Temperature-sensitive pharmaceuticals require strict, unbroken storage conditions (typically $2^\circ\text{C}$ to $8^\circ\text{C}$ or deep-freeze at $-20^\circ\text{C}$ to $-70^\circ\text{C}$).
 
-2. **Automated Cold-Chain & Expiry Enforcement**
-   - The Manufacturer locks in a Safe Temperature Range (e.g., $2^\circ\text{C}$ to $8^\circ\text{C}$) and an Expiry Date upon batch creation.
-   - If a distributor logs a temperature outside this range, or if current time exceeds expiry, the smart contract permanently trips an irreversible `isCompromised` flag.
-
-3. **Chain-of-Custody (Minimum Distributor Checkpoint) Rule**
-   - The Manufacturer configures a minimum number of required distributor verifications.
-   - If a customer scans a medicine that was verified at fewer checkpoints than required, the system displays a clear warning: `⚠️ INCOMPLETE CUSTODY CHAIN — NOT FULLY DOCUMENTED`.
-
-4. **Solving the "Oracle Problem" via AI / OCR Verification**
-   - Field distributors cannot simply type arbitrary numbers. They must upload a real photo of the physical thermometer/freezer gauge.
-   - The FastAPI middleware runs an **AI/Computer Vision OCR model (Tesseract)** on the photo. If the detected gauge temperature does not match the distributor's typed reading (within $\pm 1.5^\circ\text{C}$ tolerance), the request is rejected before reaching the blockchain.
-
-5. **Decentralized Storage (IPFS)**
-   - Thermometer gauge photos are pinned to IPFS, generating a cryptographic Content Identifier (CID, e.g., `Qm...`).
-   - Only the lightweight CID hash is stored on-chain, keeping blockchain transactions fast and gas-efficient while ensuring full auditability.
-
-6. **Frictionless Public Patient Verification**
-   - End patients and pharmacists do **not** need a crypto wallet, MetaMask, or ETH.
-   - Scanning the physical QR code on the box directly loads the **Visual Authenticity Report** (Green `🛡️ SAFE & AUTHENTIC` or Red `🚨 BATCH COMPROMISED`).
+* **The Spoilage Crisis:** The World Health Organization (WHO) estimates that up to **50% of vaccines are wasted globally each year** due to cold-chain failures and unmonitored logistics breakdowns.
+* **Silent Spoilage:** Thermally compromised pharmaceuticals look identical to potent ones. Patients and healthcare providers cannot tell with the naked eye whether a vaccine vial was exposed to ambient heat during shipment.
+* **The Oracle Problem (*Garbage-In, Garbage-Out*):** Blockchains guarantee that data cannot be altered once written, but they cannot verify if the data was true when entered. If a distributor manually enters `4°C` while the vehicle refrigerator is failing at `22°C`, the blockchain records a lie.
+* **Sanjeevani's Answer:** Field workers must upload a physical photograph of the thermometer gauge. Our AI OCR engine inspects the photo, cross-validates the needle/digital reading against the typed entry, and uploads the photo to IPFS. Only verified readings can be signed and anchored on-chain.
 
 ---
 
-## 🏗️ Architecture
+## 📌 Architecture & Role Separation
+
+The platform enforces strict cryptographic role separation on-chain:
 
 ```
-                                [ Physical Medicine Box / QR Code ]
-                                                 │
-                                ┌────────────────┴────────────────┐
-                                ▼ (Scan via Phone)                ▼ (Staff Portal)
-                      [ Customer / Patient ]             [ Manufacturer / Distributor ]
-                      No Wallet Needed (Gasless)           MetaMask Connected (RBAC)
-                                │                                 │
-                                └────────────────┬────────────────┘
-                                                 │
-                                                 ▼
-                                     ┌───────────────────────┐
-                                     │  Frontend Web Portal  │
-                                     │   (HTML5, CSS3, JS)   │
-                                     └───────────┬───────────┘
-                                                 │
-                     ┌───────────────────────────┴───────────────────────────┐
-                     ▼ (AI Photo Check & IPFS)                               ▼ (Sign Tx / Query)
-       ┌───────────────────────────┐                           ┌───────────────────────────┐
-       │     FastAPI Middleware    │                           │    Ganache CLI (EVM)      │
-       │  - Tesseract OCR Engine   │                           │    (PharmaChain.sol)      │
-       │  - IPFS Content Hashing   │                           │  - Access Control (RBAC)  │
-       │  - Web3.py Bridge         │                           │  - Temp/Expiry Latch      │
-       └─────────────┬─────────────┘                           │  - Custody Log Array      │
-                     │                                         └───────────────────────────┘
-                     ▼ (Store Proofs)
-       ┌───────────────────────────┐
-       │   Local IPFS Storage      │
-       │   (storage/ipfs/Qm...)    │
-       └───────────────────────────┘
+                            [ Sanjeevani Ecosystem ]
+                                       │
+        ┌──────────────────────────────┼──────────────────────────────┐
+        ▼                              ▼                              ▼
+  [ Administrator ]             [ Manufacturer ]               [ Distributor ]
+  Account 0 (RBAC)              Account 1                      Accounts 2, 3, 4, 5
+  - Manages permissions         - Mints new medicine batch     - Logs physical checkpoints
+  - Whitelists/revokes roles    - Sets temp specs & expiry     - Submits thermometer photos
+  - Global ledger audit view    - Prints physical QR sticker   - AI OCR verifies readings
+  - Blocked from Mfg portal     - Blocked from Admin portal    - Anchors on-chain via Web3
+  - Cannot log transit          - Cannot log transit           - Only role permitted to log
+        │                              │                              │
+        └──────────────────────────────┼──────────────────────────────┘
+                                       ▼
+                             [ Patient / Customer ]
+                                Gasless / No Wallet
+                    - Scans QR sticker via phone camera or web
+                    - Inspects instant authenticity verdict
+                    - Reads complete chronological checkpoint path
 ```
+
+### Strict Role-Based Rules:
+1. **Administrator (`admin.html`)**:
+   - Manages role authorizations (grant/revoke Manufacturer and Distributor rights).
+   - Audits all medicine batches with a global ledger search, metrics counters, and detailed checkpoint logs.
+   - Restricted from accessing the Manufacturer Portal and cannot log transit checkpoints.
+2. **Manufacturer (`manufacturer.html`)**:
+   - Mints batches on the blockchain with strict parameters: Medicine Name, Safe Temperature Range, Minimum Required Checkpoints, and Expiry Date.
+   - Generates downloadable, physical QR Code stickers linking directly to verification.
+   - Restricted from accessing the Admin Portal and cannot log transit checkpoints.
+3. **Distributor (`verify.html`)**:
+   - The **only** role permitted to log transit checkpoints. Administrators, Manufacturers, and Customers are strictly prohibited both in the UI and on-chain by the smart contract's `onlyDistributor` modifier.
+   - Uses the header **"Distributor Login"** / **"+ Log Checkpoint"** to open the AI-backed submission modal.
+4. **Customer / Public (`verify.html`)**:
+   - Zero wallet, browser extension, or crypto required.
+   - Direct access to the authenticity verdict, temperature history, and manufacturer origin.
 
 ---
 
@@ -109,185 +77,255 @@ The modern pharmaceutical supply chain faces **four critical systemic failures**
 Project_Sanjeevani/
 │
 ├── contracts/
-│   └── PharmaChain.sol          # Solidity 0.8.20 Smart Contract (RBAC, safety, events)
+│   └── PharmaChain.sol          # Solidity 0.8.20 Smart Contract (RBAC, safety latches, events)
 │
 ├── scripts/
-│   └── deploy.py                # Compiles & deploys to Ganache CLI; bootstraps initial roles
+│   └── deploy.py                # Compiles & deploys contract to Ganache; pre-authorizes test roles
 │
 ├── backend/
-│   ├── app.py                   # FastAPI application & HTTP API endpoints
-│   ├── config.py                # Web3 connection & contract artifact loader
+│   ├── app.py                   # FastAPI application & REST endpoints
+│   ├── config.py                # Web3 connection & build artifact loader
 │   ├── services/
 │   │   ├── ocr_service.py       # Tesseract OCR thermometer gauge validation
-│   │   └── ipfs_service.py      # Cryptographic CID generation & content-addressable storage
+│   │   └── ipfs_service.py      # IPFS CID generation & content-addressable photo storage
 │   └── storage/
-│       └── ipfs/                # Local IPFS photo proof storage
+│       └── ipfs/                # Local IPFS photo repository
 │
 ├── frontend/
-│   ├── index.html               # Main Navigation Hub & Public Batch Search
-│   ├── verify.html              # The QR Destination: Authenticity Report + Distributor Transit Action
-│   ├── manufacturer.html        # Manufacturer Portal: Mint batch & generate QR sticker
-│   ├── admin.html               # Administrator Portal: Whitelist/revoke roles on-chain
-│   ├── common.js                # Shared Web3, MetaMask, and FastAPI client logic
-│   └── styles.css               # Clean clinical & cold-chain responsive styling
+│   ├── index.html               # Main Navigation Hub & Integrated Camera/File QR Scanner
+│   ├── verify.html              # Authenticity Verdict & Distributor Checkpoint Logger
+│   ├── manufacturer.html        # Manufacturer Portal: Batch Minting & QR Sticker Generator
+│   ├── admin.html               # Administrator Portal: RBAC Management & Global Ledger Audit
+│   ├── common.js                # Unified Web3 wallet connector, on-chain role detector & timeline
+│   └── styles.css               # Clinical, clean, responsive styling
 │
 ├── build/
-│   ├── PharmaChain_ABI.json     # Compiled Contract ABI
-│   └── deployed_contract.json   # Deployed Contract Address & Bootstrapped Roles
+│   ├── PharmaChain_ABI.json     # Compiled contract ABI
+│   └── deployed_contract.json   # Contract address, deployment block & bootstrapped test accounts
 │
 ├── requirements.txt             # Python dependencies
+├── .vscode/
+│   └── settings.json            # Live Server ignore configuration (prevents auto-reload on file writes)
 └── README.md                    # Project documentation
 ```
 
 ---
 
-## 🚀 Quickstart Guide
+## 🛠️ Prerequisites & Installation
 
-### 1. Prerequisites
-* **Python 3.10+**
-* **Node.js & npm** (for Ganache CLI)
-* **Tesseract OCR** (`brew install tesseract` on macOS, or `apt install tesseract-ocr` on Linux)
-* **MetaMask Extension** installed in your browser
+### 1. System Requirements
+- **macOS / Linux / Windows**
+- **Python 3.10+** (tested up to Python 3.14)
+- **Node.js 18+** & `npm`
+- **Tesseract OCR** (for the AI gauge validation engine):
+  - **macOS:** `brew install tesseract`
+  - **Ubuntu / Debian:** `sudo apt-get install tesseract-ocr`
+  - **Windows:** Download and install from [UB-Mannheim Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) and ensure it is on your system `PATH`.
+- **VS Code** with the **Live Server** extension (by Ritwick Dey).
+- **MetaMask** or **Rabby Wallet** browser extension.
 
-Install Ganache CLI globally:
+### 2. Install Ganache Globally
 ```bash
 npm install -g ganache
 ```
 
----
-
-### 2. Setup Virtual Environment & Dependencies
+### 3. Setup Python Virtual Environment
+Open your terminal inside the `Project_Sanjeevani` directory:
 ```bash
-# Activate existing virtual environment
-source .venv/bin/activate
+# Create virtual environment (if not already created)
+python3 -m venv .venv
 
-# Install requirements
+# Activate the virtual environment
+source .venv/bin/activate       # macOS / Linux
+# .venv\Scripts\activate       # Windows PowerShell
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
 ---
 
-### 3. Start Ganache CLI
-In **Terminal 1**, run Ganache listening on all network interfaces:
+## 🚀 Local Development Run Guide
+
+To run Sanjeevani locally, follow these 4 steps in order:
+
+### Terminal 1: Start Ganache Local Blockchain
+Start a local EVM instance listening on port `8545`:
 ```bash
 ganache -h 0.0.0.0 -p 8545
 ```
-> Ganache will output 10 accounts and their private keys. Keep this terminal running!
+> **Keep this terminal running.** Ganache will print 10 test accounts with private keys and 1000 ETH each.
 
 ---
 
-### 4. Deploy Smart Contract
-In **Terminal 2**, run the Python deployment script:
+### Terminal 2: Deploy the Smart Contract
+Activate your virtual environment and run the deployment script:
 ```bash
-.venv/bin/python scripts/deploy.py
+source .venv/bin/activate
+python scripts/deploy.py
 ```
 This script will:
-* Compile `contracts/PharmaChain.sol` using Solidity `0.8.20`.
-* Deploy the contract to Ganache via Account #0 (Admin).
-* Pre-authorize **Account #1** as Manufacturer and **Accounts #2, #3, #4, and #5** as Distributors.
-* Save the ABI and address to `build/deployed_contract.json`.
+1. Compile `contracts/PharmaChain.sol`.
+2. Deploy the contract to Ganache via **Account 0 (Admin)**.
+3. Automatically configure initial on-chain authorizations:
+   - **Account 1** &rarr; Authorized Manufacturer
+   - **Accounts 2, 3, 4, 5** &rarr; Authorized Distributors
+4. Output `build/deployed_contract.json` and `build/PharmaChain_ABI.json`.
 
 ---
 
-### 5. Start FastAPI Backend
-In **Terminal 3**, launch the FastAPI server:
+### Terminal 3: Start FastAPI Backend
+Launch the backend server using `uvicorn` with hot-reloading:
 ```bash
-.venv/bin/uvicorn backend.app:app --host 0.0.0.0 --port 8000 --reload
+source .venv/bin/activate
+uvicorn backend.app:app --reload
 ```
-* **Swagger API Docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-* **Health Check:** [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+* **API Documentation (Swagger UI):** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+* **API Health Check:** [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
 
 ---
 
-### 6. Start the Frontend
-In **Terminal 4**, start a lightweight local web server:
-```bash
-python3 -m http.server 3000 --bind 0.0.0.0 --directory frontend
-```
-Open **[http://localhost:3000](http://localhost:3000)** in your browser!
+### Step 4: Run the Frontend with VS Code Live Server
+1. Open the `Project_Sanjeevani` folder in **VS Code**.
+2. Click the **"Go Live"** button in the bottom-right status bar of VS Code (or right-click `frontend/index.html` &rarr; **"Open with Live Server"**).
+3. Live Server will serve the workspace at port `5500`. Navigate to:
+   ```text
+   http://127.0.0.1:5500/frontend/index.html
+   ```
+
+> **Note on Live Server file watching:** The included `.vscode/settings.json` is configured to ignore backend runtime caches and `build/` files, preventing unwanted auto-reloading during batch minting.
 
 ---
 
-## 🦊 Configuring MetaMask for Local Testing
+## 🦊 Configuring MetaMask / Rabby Wallet
 
-1. In MetaMask, go to **Networks $\rightarrow$ Add a Network $\rightarrow$ Add a network manually**:
-   * **Network Name:** `Ganache CLI`
-   * **New RPC URL:** `http://127.0.0.1:8545` *(or your local Wi-Fi IP if testing on mobile, e.g., `http://192.168.1.4:8545`)*
-   * **Chain ID:** `1337`
-   * **Currency Symbol:** `ETH`
+1. Open your browser extension (MetaMask or Rabby).
+2. Add a Custom Network:
+   - **Network Name:** `Ganache CLI`
+   - **RPC URL:** `http://127.0.0.1:8545`
+   - **Chain ID:** `1337`
+   - **Currency Symbol:** `ETH`
+3. Import the private keys generated by Ganache in Terminal 1:
 
-2. Import test accounts from your Ganache terminal using their **Private Keys**:
-   * **Account #0:** System Admin
-   * **Account #1:** Manufacturer (Pfizer)
-   * **Account #2:** Distributor #1
-   * **Account #3:** Distributor #2
-   * **Account #4:** Distributor #3
-   * **Account #5:** Distributor #4
-
----
-
-## 🎬 End-to-End Demonstration Workflow
-
-### Step 1: Manufacturer Mints a Batch
-1. Open **`http://localhost:3000/manufacturer.html`**.
-2. Connect MetaMask (**Account #1: Manufacturer**).
-3. Enter batch details:
-   * **Batch ID:** `VAX-2026-001`
-   * **Medicine Name:** `Covaxin Bio-Shield`
-   * **Safe Temp Range:** `2°C` to `8°C`
-   * **Required Checkpoints:** `2`
-   * **Expiry Date:** Select a future date.
-4. Click **"Mint Batch on Blockchain"** and approve the MetaMask popup.
-5. An instant, printable **QR Code** is generated linking directly to the batch verification page.
+| Role | Account in Ganache | Default Address | Function |
+| :--- | :--- | :--- | :--- |
+| **System Admin** | **Account 0** | `0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1` | Manage roles in Admin Portal; audits global ledger |
+| **Manufacturer** | **Account 1** | `0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0` | Mint medicine batches; generate QR stickers |
+| **Distributor 1** | **Account 2** | `0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b` | Log transit checkpoint #1 with AI verification |
+| **Distributor 2** | **Account 3** | `0xE11BA2b4D45Eaed5996Cd0823791E0C93114882d` | Log transit checkpoint #2 with AI verification |
+| **Normal Customer**| **Account 6+**| Any unlisted account | Read-only public verification; gasless |
 
 ---
 
-### Step 2: Distributor Logs Transit Checkpoints
-1. Scan or open the QR code URL: `http://localhost:3000/verify.html?batch=VAX-2026-001`.
-2. Notice the top action bar: **"Are you the Logistics Distributor delivering this box?"**
-3. Click **"Log Transit Checkpoint"** and switch MetaMask to **Account #2 (Distributor #1)**.
-4. Enter:
-   * **Location:** `Mumbai Central Cold Hub`
-   * **Temperature:** `4.5°C`
-   * **Photo:** Upload a photo of a thermometer gauge reading `4.5` (or any gauge image).
+## 🎬 End-to-End Walkthrough Demonstration
+
+### 1. Mint a Medicine Batch (Manufacturer Portal)
+1. Open [http://127.0.0.1:5500/frontend/manufacturer.html](http://127.0.0.1:5500/frontend/manufacturer.html).
+2. Connect your wallet using **Account 1** (Manufacturer).
+3. Enter batch parameters:
+   - **Batch ID:** `VAX-2026-001`
+   - **Medicine Name:** `Covaxin Bio-Shield`
+   - **Safe Temperature Range:** `2°C` to `8°C`
+   - **Required Checkpoints:** `2`
+   - **Expiry Date:** Select a future date.
+4. Click **"Mint Batch on Blockchain"** and confirm the transaction in MetaMask.
+5. The portal displays a printable **QR Code sticker**:
+   - Click **"Download QR Sticker (PNG)"** to save the physical label.
+   - Click **"Test QR Link (Verify) &rarr;"** to open the verification report.
+
+---
+
+### 2. Public Verification & Milestone 0 (`verify.html`)
+1. On the verification page, notice the compact status banner at the top:
+   - **`IN TRANSIT`** *(Amber)* &mdash; indicates the batch is safely created but has not yet met the required 2 distributor verifications.
+2. The **Batch Details** section shows the medicine name, safe temperature range, and custody documentation status.
+3. The **Detailed Checkpoint Logs** opens with:
+   - **`Origin: Manufacturer Facility` (Batch Minted)**
+   - Target cold-chain specification: `2°C to 8°C (Manufacturer Base)`
+   - Manufacturer address and expiration date.
+   - Followed by `Transit in Progress: Awaiting Checkpoint #1`.
+
+---
+
+### 3. Log Transit Checkpoint #1 (Distributor 1)
+1. In your wallet extension, switch to **Account 2** (Distributor 1).
+   > **Note:** Switching accounts while on `verify.html` updates your identity in place and will **never** kick you back to the home page.
+2. The navbar reveals the **`+ Log Checkpoint`** button. Click it.
+3. The Batch ID field is automatically pre-filled and locked to `VAX-2026-001`.
+4. Enter checkpoint details:
+   - **Location:** `Mumbai International Airport Cold Hub`
+   - **Temperature:** `4.5`
+   - **Thermometer Photo:** Upload a photo of a thermometer gauge displaying `4.5°C`.
 5. Click **"AI Verify & Anchor to Blockchain"**:
-   * FastAPI runs OCR to cross-check the gauge photo against the typed reading.
-   * Photo is saved to decentralized IPFS storage (`storage/ipfs/Qm...`).
-   * MetaMask prompts the distributor to sign `updateTransit(...)`.
-6. Repeat with **Account #3 (Distributor #2)** at `Delhi Regional Storage` with `5.0°C`.
+   - The FastAPI backend validates the photo using Tesseract OCR.
+   - Pins the image to IPFS and returns the CID.
+   - MetaMask prompts to sign the on-chain `updateTransit(...)` transaction.
+6. The timeline refreshes instantly to show Checkpoint #1 with a clickable **"View Thermometer Photo Proof"** IPFS link.
 
 ---
 
-### Step 3: Customer / Patient Verification (Mobile Scan)
-1. Point your smartphone camera at the QR code on your laptop screen (or visit `verify.html?batch=VAX-2026-001`).
-2. **No wallet or MetaMask required on the phone.**
-3. The page immediately renders:
-   * **`🛡️ FULLY VERIFIED & AUTHENTIC`** (All checkpoints logged within safe bounds).
-   * Complete factory-to-pharmacy custody timeline with timestamps, locations, and clickable **"View Thermometer Photo Proof"** links.
+### 4. Log Checkpoint #2 & Reach Complete Verification (Distributor 2)
+1. Switch your wallet to **Account 3** (Distributor 2).
+2. Click **`+ Log Checkpoint`**.
+3. Enter:
+   - **Location:** `Delhi Central Regional Storage`
+   - **Temperature:** `5.2`
+   - **Thermometer Photo:** Upload a thermometer photo reading `5.2°C`.
+4. Submit and approve in wallet.
+5. Once confirmed, the status banner immediately flips to:
+   - **`FULLY VERIFIED & AUTHENTIC`** *(Green)*.
+   - All 2 required distributor verifications are documented.
 
 ---
 
-### Step 4: The Cold-Chain Breach Simulation (Compromised Batch)
-1. Switch to a distributor account and log an intentional freezer failure: `25.0°C`.
-2. Submit the transaction.
-3. Refresh the verification page:
-   * The status immediately flashes **RED**: **`🚨 BATCH COMPROMISED — DO NOT CONSUME`**.
-   * The smart contract permanently locks this state—protecting patients from spoiled medicine.
+### 5. Audit in the Administrator Portal (`admin.html`)
+1. Switch to **Account 0** (Admin) and visit [http://127.0.0.1:5500/frontend/admin.html](http://127.0.0.1:5500/frontend/admin.html).
+2. In the **Role-Based Access Control** section, you can add or revoke manufacturers and distributors on-chain.
+3. In the **Global Ledger Audit** section:
+   - Review live metrics counters: *Total Discovered*, *Fully Verified*, *In-Transit / Incomplete*, and *Compromised*.
+   - Search batches by name, ID, or transit location.
+   - Expand any batch to see the **Detailed Checkpoint Logs**, which are **100% identical** in layout, badges, and milestones to the customer verification view.
 
 ---
 
-## 📜 Smart Contract API Summary
+### 6. Simulate a Temperature Breach
+1. Switch to an authorized distributor account on `verify.html`.
+2. Submit a checkpoint with a temperature reading of `25.0°C` (outside the `2°C` to `8°C` bounds).
+3. The smart contract trips its safety latch:
+   - The status banner flips to **`NOT AUTHENTIC — BATCH COMPROMISED`** *(Red)*.
+   - The compromised milestone highlights in red with a **`(TEMPERATURE BREACH!)`** alert.
+   - The state is permanent and irreversible on the blockchain, protecting patients from consuming spoiled medicine.
 
-| Function | Access | Description |
+---
+
+## 🛡️ Smart Contract API Reference
+
+`PharmaChain.sol` implements the following functions:
+
+| Function | Modifiers | Description |
 | :--- | :--- | :--- |
-| `mintBatch(...)` | `onlyManufacturer` | Creates a new batch with temp range, expiry, and min required checkpoints |
-| `updateTransit(...)` | `onlyDistributor` | Appends a checkpoint log; trips `isCompromised` if temp is breached or expired |
-| `setManufacturer(...)` | `onlyAdmin` | Whitelists or revokes a manufacturer address |
-| `setDistributor(...)` | `onlyAdmin` | Whitelists or revokes a distributor address |
-| `getBatchDetails(...)` | `public view` | Gasless read query returning batch metadata, custody count, and safety status |
-| `getBatchHistory(...)` | `public view` | Gasless read query returning the full array of transit records and IPFS CIDs |
+| `mintBatch(...)` | `external onlyManufacturer` | Registers a new batch with medicine name, expiry date, temperature boundaries, and required checkpoint count. |
+| `updateTransit(...)` | `external onlyDistributor` | Appends a transit record with location, temperature, and IPFS CID. Automatically trips `isCompromised` if temperature is breached or product is expired. |
+| `setManufacturer(...)` | `external onlyAdmin` | Whitelists or revokes a manufacturer address on-chain. |
+| `setDistributor(...)` | `external onlyAdmin` | Whitelists or revokes a distributor address on-chain. |
+| `getBatchDetails(...)` | `external view returns (...)` | Returns batch metadata, temperature boundaries, checkpoint counts, and compromise status. |
+| `getBatchHistory(...)` | `external view returns (...)` | Returns the complete chronological array of transit records and IPFS image CIDs. |
 
 ---
 
-## 🛡️ License
-This project is open-source and distributed under the [MIT License](LICENSE).
+## ❓ Troubleshooting
+
+1. **`Cannot GET /verify.html`**:
+   - Live Server serves from the workspace root. Ensure your URL includes the `/frontend/` path:
+     `http://127.0.0.1:5500/frontend/verify.html?batch=<BATCH_ID>`
+2. **Page auto-reloading after minting a batch**:
+   - Ensure you are running the latest backend code which stores runtime caches in `/tmp/` and that `.vscode/settings.json` is present.
+3. **`TesseractNotFoundError` in backend terminal**:
+   - Install Tesseract via `brew install tesseract` (macOS) or `apt install tesseract-ocr` (Linux).
+4. **Transactions reverting with "Only authorized distributors can do this"**:
+   - Ensure the wallet connected in your extension is one of the authorized distributor accounts (Accounts 2, 3, 4, or 5). Administrators and Manufacturers cannot log transit.
+
+---
+
+## 📄 License
+This project is open-source and available under the [MIT License](LICENSE).
