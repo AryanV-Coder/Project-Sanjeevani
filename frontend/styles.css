@@ -389,26 +389,39 @@ input:focus, select:focus {
   display: none !important;
 }
 
-/* Verdict Banner */
+/* Verdict Banner - Compact header bar */
 .verdict-banner {
-  padding: 20px;
-  border-radius: var(--radius);
+  padding: 8px 16px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
   font-weight: 700;
-  font-size: 1.25rem;
+  font-size: 0.92rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  box-sizing: border-box;
 }
 
 .verdict-banner.safe {
   background: var(--success-bg);
   color: var(--success);
-  border: 2px solid #a7f3d0;
+  border: 1px solid #a7f3d0;
 }
 
 .verdict-banner.compromised {
   background: var(--danger-bg);
   color: var(--danger);
-  border: 2px solid #fecdd3;
+  border: 1px solid #fecdd3;
+}
+
+.verdict-banner.warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
 }
 
 /* Batch Summary */

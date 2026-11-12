@@ -90,20 +90,7 @@
         <!-- Safety Banner: Green, Yellow/Warning, or Red -->
         <div id="safetyVerdict" class="verdict-banner"></div>
 
-        <!-- 1. HORIZONTAL JOURNEY TIMELINE (At the start!) -->
-        <div id="horizontalTimelineSection" class="h-timeline-wrapper">
-          <div class="h-timeline-header">
-            <h3>Medicine Journey & Cold-Chain Route</h3>
-            <span id="hTimelineSummary" style="font-size:0.82rem; color:var(--text-muted);">Tracking custody path from origin to destination</span>
-          </div>
-          <div class="h-timeline-scroll">
-            <div id="horizontalTimelineTrack" class="h-timeline-track">
-              <!-- Dynamically rendered horizontal steps -->
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. BATCH DETAILS (Below the timeline!) -->
+        <!-- BATCH DETAILS -->
         <div class="batch-summary">
           <div class="info-item">
             <span class="label">Medicine Name</span>
@@ -157,23 +144,23 @@
       });
       document.getElementById("walletBadge").addEventListener("click", openWalletModal);
 
-      // Extract batch from URL (?batch=VAX-2026-001)
+      // Extract batch from URL (?batch=VAX-2026-001) or sessionStorage
       const params = new URLSearchParams(window.location.search);
       currentBatchId = params.get("batch");
-
       if (!currentBatchId) {
-        document.getElementById("loadingState").innerHTML = `
-          <p style="color:var(--danger); font-weight:600;">No Batch ID provided in URL.</p>
-          <a href="index.html" class="btn btn-outline" style="margin-top:12px;">Return to Search</a>
-        `;
-        return;
+        currentBatchId = sessionStorage.getItem("sanjeevani_current_batch") || "";
       }
-
-      // Pre-fill distributor form
-      document.getElementById("distBatchId").value = currentBatchId;
-
-      // Load on-chain batch history
-      await fetchBatchDetails(currentBatchId);
+      if (currentBatchId) {
+        sessionStorage.setItem("sanjeevani_current_batch", currentBatchId);
+        ensureBatchIdPreFilled();
+        await fetchBatchDetails(currentBatchId);
+      } else {
+        ensureBatchIdPreFilled();
+        document.getElementById("loadingState").innerHTML = `
+          <p style="color:var(--text-muted); font-weight:500;">No Batch ID provided in URL. Please search a batch on Home or scan a QR code.</p>
+          <a href="index.html" class="btn btn-outline" style="margin-top:12px;">Return to Home / Search</a>
+        `;
+      }
 
       document.getElementById("cancelTransitBtn").addEventListener("click", () => {
         document.getElementById("distributorTransitPanel").classList.add("hidden");
@@ -181,7 +168,65 @@
 
       // Distributor Transit Form Submit
       document.getElementById("transitForm").addEventListener("submit", handleTransitSubmit);
+
+      // Listen for manual batch ID entry if field is editable
+      const distInput = document.getElementById("distBatchId");
+      if (distInput) {
+        distInput.addEventListener("input", (e) => {
+          const val = e.target.value.trim();
+          if (val) {
+            currentBatchId = val;
+            sessionStorage.setItem("sanjeevani_current_batch", val);
+          }
+        });
+      }
     });
+
+    function getActiveBatchId() {
+      if (currentBatchId && currentBatchId.trim()) return currentBatchId.trim();
+      const params = new URLSearchParams(window.location.search);
+      const qBatch = params.get("batch");
+      if (qBatch && qBatch.trim()) {
+        currentBatchId = qBatch.trim();
+        return currentBatchId;
+      }
+      const distInput = document.getElementById("distBatchId");
+      if (distInput && distInput.value && distInput.value.trim()) {
+        currentBatchId = distInput.value.trim();
+        return currentBatchId;
+      }
+      const resEl = document.getElementById("resBatchId");
+      if (resEl && resEl.textContent && resEl.textContent.trim() !== "-" && resEl.textContent.trim() !== "") {
+        currentBatchId = resEl.textContent.trim();
+        return currentBatchId;
+      }
+      const saved = sessionStorage.getItem("sanjeevani_current_batch");
+      if (saved && saved.trim()) {
+        currentBatchId = saved.trim();
+        return currentBatchId;
+      }
+      return "";
+    }
+
+    function ensureBatchIdPreFilled() {
+      const bId = getActiveBatchId();
+      const distInput = document.getElementById("distBatchId");
+      if (distInput) {
+        if (bId) {
+          currentBatchId = bId;
+          sessionStorage.setItem("sanjeevani_current_batch", bId);
+          distInput.value = bId;
+          distInput.readOnly = true;
+          distInput.style.background = "#f1f5f9";
+          distInput.style.cursor = "not-allowed";
+        } else {
+          distInput.readOnly = false;
+          distInput.style.background = "#ffffff";
+          distInput.style.cursor = "text";
+          distInput.placeholder = "Enter Batch ID (e.g. ABC1)";
+        }
+      }
+    }
 
     async function fetchBatchDetails(batchId) {
       try {
@@ -202,20 +247,33 @@
     }
 
     function renderBatchData(batch) {
+      if (batch && batch.batchId) {
+        currentBatchId = batch.batchId;
+        sessionStorage.setItem("sanjeevani_current_batch", batch.batchId);
+        ensureBatchIdPreFilled();
+      }
+
       const verdict = document.getElementById("safetyVerdict");
 
       // 1. Compromised Check (Temp breach or expired)
       if (batch.isCompromised) {
         verdict.className = "verdict-banner compromised";
-        verdict.innerHTML = "BATCH COMPROMISED — DO NOT CONSUME<br><span style='font-size:0.85rem;font-weight:400;'>This product suffered a temperature spike or passed its expiration date.</span>";
+        verdict.style.background = "";
+        verdict.style.color = "";
+        verdict.style.border = "";
+        verdict.textContent = "NOT AUTHENTIC — BATCH COMPROMISED";
       } 
       // 2. Under-Documented Check (Insufficient distributor verifications)
       else if (batch.isUnderDocumented) {
-        verdict.className = "verdict-banner";
-        verdict.style.background = "#fffbeb";
-        verdict.style.color = "#b45309";
-        verdict.style.border = "2px solid #fde68a";
-        verdict.innerHTML = `INCOMPLETE CUSTODY CHAIN — NOT FULLY DOCUMENTED<br><span style='font-size:0.85rem;font-weight:400;'>Manufacturer required at least <strong>${batch.minCheckpoints} distributor checkpoints</strong>, but only <strong>${batch.checkpointCount}</strong> have verified it so far.</span>`;
+        verdict.className = "verdict-banner warning";
+        verdict.style.background = "";
+        verdict.style.color = "";
+        verdict.style.border = "";
+        if (Number(batch.checkpointCount) === 0) {
+          verdict.textContent = "IN TRANSIT";
+        } else {
+          verdict.textContent = "IN TRANSIT — NOT COMPLETED";
+        }
       } 
       // 3. Fully Verified & Safe
       else {
@@ -223,13 +281,10 @@
         verdict.style.background = "";
         verdict.style.color = "";
         verdict.style.border = "";
-        verdict.innerHTML = `FULLY VERIFIED & AUTHENTIC<br><span style='font-size:0.85rem;font-weight:400;'>All ${batch.minCheckpoints} required distributor checkpoints verified within safe temperature limits (${batch.minTemp}°C to ${batch.maxTemp}°C).</span>`;
+        verdict.textContent = "FULLY VERIFIED & AUTHENTIC";
       }
 
-      // Render Horizontal Timeline first!
-      renderHorizontalTimeline(batch);
-
-      // Render Batch Details below!
+      // Render Batch Details
       document.getElementById("resMedName").textContent = batch.medicineName;
       document.getElementById("resBatchId").textContent = batch.batchId;
       document.getElementById("resTempRange").textContent = `${batch.minTemp}°C to ${batch.maxTemp}°C`;
@@ -241,137 +296,11 @@
       const statusIcon = batch.isUnderDocumented ? "Incomplete" : "Complete";
       document.getElementById("resCheckpoints").innerHTML = `${batch.checkpointCount} of ${batch.minCheckpoints} required checkpoints logged (${statusIcon})`;
 
-      // Render Detailed Vertical Timeline
+      // Render Detailed Checkpoint Logs (Includes Manufacturer Origin + Distributor Checkpoints)
       const timeline = document.getElementById("timelineContainer");
-      timeline.innerHTML = "";
-
-      if (batch.history.length === 0) {
-        timeline.innerHTML = "<p style='color:var(--text-muted); font-size:0.9rem;'>At manufacturer origin. No transit checkpoints recorded yet.</p>";
-        return;
+      if (timeline) {
+        timeline.innerHTML = renderBatchTimelineHtml(batch);
       }
-
-      batch.history.forEach((rec, idx) => {
-        const isBreach = rec.temperature < batch.minTemp || rec.temperature > batch.maxTemp;
-        const dateStr = new Date(Number(rec.timestamp) * 1000).toLocaleString();
-
-        const item = document.createElement("div");
-        item.className = `timeline-item ${isBreach ? "breach" : ""}`;
-        item.innerHTML = `
-          <div class="timeline-content">
-            <div class="timeline-header">
-              <span class="timeline-loc">Checkpoint #${idx + 1}: ${escapeHtml(rec.location)}</span>
-              <span class="timeline-time">${dateStr}</span>
-            </div>
-            <div class="timeline-temp ${isBreach ? 'bad' : 'ok'}">
-              Logged Temp: ${rec.temperature}°C ${isBreach ? "(TEMPERATURE BREACH!)" : "(Within Safe Range)"}
-            </div>
-            <div class="timeline-proof">
-              <a href="${BACKEND_URL}/ipfs/${rec.imageCID}" target="_blank" rel="noopener">
-                View Thermometer Photo Proof (IPFS: ${rec.imageCID.slice(0, 10)}...)
-              </a>
-            </div>
-          </div>
-        `;
-        timeline.appendChild(item);
-      });
-    }
-
-    function renderHorizontalTimeline(batch) {
-      const track = document.getElementById("horizontalTimelineTrack");
-      const summarySpan = document.getElementById("hTimelineSummary");
-      if (!track) return;
-
-      const history = batch.history || [];
-      const minTemp = Number(batch.minTemp);
-      const maxTemp = Number(batch.maxTemp);
-
-      if (summarySpan) {
-        summarySpan.textContent = `${history.length} transit milestone${history.length === 1 ? '' : 's'} recorded on-chain`;
-      }
-
-      let steps = [];
-
-      // 1. Origin (Manufacturer)
-      steps.push({
-        type: "origin",
-        statusClass: "completed",
-        nodeLabel: "Origin",
-        location: "Manufacturer Origin",
-        tempText: `Safe: ${minTemp}°C to ${maxTemp}°C`,
-        tempClass: "ok",
-        timeText: "Batch Minted",
-        proofLink: ""
-      });
-
-      // 2. Intermediate Checkpoints
-      history.forEach((rec, idx) => {
-        const isBreach = rec.temperature < minTemp || rec.temperature > maxTemp;
-        const dateStr = new Date(Number(rec.timestamp) * 1000).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        const proofUrl = rec.imageCID ? `${BACKEND_URL}/ipfs/${rec.imageCID}` : "";
-
-        steps.push({
-          type: "checkpoint",
-          statusClass: isBreach ? "breached" : "completed",
-          nodeLabel: `${idx + 1}`,
-          location: rec.location || `Checkpoint #${idx + 1}`,
-          tempText: `${rec.temperature}°C ${isBreach ? '(Breach!)' : '(Safe)'}`,
-          tempClass: isBreach ? "bad" : "ok",
-          timeText: dateStr,
-          proofLink: proofUrl
-        });
-      });
-
-      // 3. Final / Destination Node
-      if (batch.isCompromised) {
-        steps.push({
-          type: "final",
-          statusClass: "breached",
-          nodeLabel: "✕",
-          location: "Compromised",
-          tempText: "Breach Detected",
-          tempClass: "bad",
-          timeText: "Do Not Consume",
-          proofLink: ""
-        });
-      } else if (batch.isUnderDocumented) {
-        const remaining = batch.minCheckpoints - batch.checkpointCount;
-        steps.push({
-          type: "final",
-          statusClass: "pending",
-          nodeLabel: "...",
-          location: "In Transit",
-          tempText: `${remaining} checkpoint${remaining === 1 ? '' : 's'} pending`,
-          tempClass: "",
-          timeText: "En Route to Destination",
-          proofLink: ""
-        });
-      } else {
-        steps.push({
-          type: "final",
-          statusClass: "completed",
-          nodeLabel: "✓",
-          location: "Destination Hub",
-          tempText: "Delivered & Verified",
-          tempClass: "ok",
-          timeText: "Safe for Patient",
-          proofLink: ""
-        });
-      }
-
-      track.innerHTML = steps.map(s => {
-        const proofHtml = s.proofLink ? `<a href="${s.proofLink}" target="_blank" class="h-proof">View Photo Proof ↗</a>` : "";
-        return `
-          <div class="h-step ${s.type} ${s.statusClass}">
-            <div class="h-node">${s.nodeLabel}</div>
-            <div class="h-info">
-              <div class="h-loc">${escapeHtml(s.location)}</div>
-              <div class="h-temp ${s.tempClass}">${s.tempText}</div>
-              <div class="h-time">${s.timeText}</div>
-              ${proofHtml}
-            </div>
-          </div>
-        `;
-      }).join("");
     }
 
     function updateDistributorNavbar() {
@@ -413,6 +342,8 @@
     }
 
     function openDistributorPanel() {
+      ensureBatchIdPreFilled();
+
       const panel = document.getElementById("distributorTransitPanel");
       const warning = document.getElementById("distAuthWarning");
       const submitBtn = document.getElementById("transitSubmitBtn");
@@ -444,6 +375,7 @@
 
     function onAccountChanged(address, role) {
       updateDistributorNavbar();
+      ensureBatchIdPreFilled();
       const panel = document.getElementById("distributorTransitPanel");
       if (!panel.classList.contains("hidden")) {
         openDistributorPanel();
@@ -459,6 +391,12 @@
 
       if (sharedRole !== "distributor") {
         showAlert("Access Denied: Only authorized Distributors can log transit checkpoints. Administrators, Manufacturers, and Customers cannot.", "danger");
+        return;
+      }
+
+      const activeBatch = getActiveBatchId();
+      if (!activeBatch) {
+        showAlert("Error: Missing Batch ID. Please refresh the batch page or enter a Batch ID.", "danger");
         return;
       }
 
@@ -493,7 +431,7 @@
 
         showAlert("Step 2/2: AI check passed! Please sign transaction in your wallet...", "info");
         const intTemp = Math.round(temp);
-        const tx = await sharedContract.updateTransit(currentBatchId, location, intTemp, imageCID);
+        const tx = await sharedContract.updateTransit(activeBatch, location, intTemp, imageCID);
 
         showAlert("Transaction submitted to Ganache! Confirming...", "info");
         await tx.wait();
@@ -501,9 +439,10 @@
         showAlert("Transit checkpoint logged successfully! Refreshing timeline...", "success");
         document.getElementById("distributorTransitPanel").classList.add("hidden");
         document.getElementById("transitForm").reset();
+        ensureBatchIdPreFilled();
         
         // Refresh batch data
-        await fetchBatchDetails(currentBatchId);
+        await fetchBatchDetails(activeBatch);
       } catch (err) {
         console.error("Transit error:", err);
         showAlert(err.message || "Transit update failed", "danger");

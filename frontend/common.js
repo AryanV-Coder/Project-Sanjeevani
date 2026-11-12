@@ -567,3 +567,97 @@ function initQrScanner({
     });
   }
 }
+
+/**
+ * Unified, standardized batch timeline renderer
+ * Identical across both Verify and Admin portals.
+ * Renders the initial Manufacturer Origin followed by all Distributor Transit checkpoints.
+ */
+function renderBatchTimelineHtml(batch) {
+  if (!batch) return "";
+
+  const minTemp = Number(batch.minTemp);
+  const maxTemp = Number(batch.maxTemp);
+  const history = batch.history || [];
+  const mfg = batch.manufacturer || "Unknown Manufacturer";
+  const mfgShort = mfg.length > 14 ? `${mfg.slice(0, 8)}...${mfg.slice(-6)}` : mfg;
+  const expiryStr = batch.expiryDate ? new Date(Number(batch.expiryDate) * 1000).toLocaleDateString() : "";
+
+  let itemsHtml = "";
+
+  // 1. Manufacturer Origin Checkpoint
+  itemsHtml += `
+    <div class="timeline-item">
+      <div class="timeline-content">
+        <div class="timeline-header">
+          <span class="timeline-loc">Origin: Manufacturer Facility</span>
+          <span class="timeline-time">Batch Minted</span>
+        </div>
+        <div class="timeline-temp ok">
+          Cold-Chain Specification: ${minTemp}°C to ${maxTemp}°C <span style="font-size:0.75rem; font-weight:normal;">(Manufacturer Base)</span>
+        </div>
+        <div style="font-size:0.82rem; color:var(--text-muted); margin-top:4px;">
+          Logged by Manufacturer: <code title="${escapeHtml(mfg)}">${escapeHtml(mfgShort)}</code>
+          ${expiryStr ? ` &bull; Expiry: <span>${expiryStr}</span>` : ""}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // 2. If no distributor checkpoints yet
+  if (history.length === 0) {
+    itemsHtml += `
+      <div class="timeline-item" style="opacity:0.85;">
+        <div class="timeline-content" style="background:#f8fafc; border:1px dashed #cbd5e1;">
+          <div class="timeline-header">
+            <span class="timeline-loc" style="color:var(--text-muted);">Transit in Progress: Awaiting Checkpoint #1</span>
+            <span class="timeline-time">In Transit</span>
+          </div>
+          <div style="font-size:0.82rem; color:var(--text-muted); margin-top:4px;">
+            Product departed manufacturer origin. Required distributor verifications: <strong>${batch.minCheckpoints || 1}</strong>.
+          </div>
+        </div>
+      </div>
+    `;
+    return itemsHtml;
+  }
+
+  // 3. Distributor Transit Checkpoints
+  history.forEach((rec, idx) => {
+    const tempNum = Number(rec.temperature);
+    const isBreach = tempNum < minTemp || tempNum > maxTemp;
+    const timeStr = rec.timestamp ? new Date(Number(rec.timestamp) * 1000).toLocaleString() : "Timestamp Recorded";
+    const dist = rec.loggedBy || "Unknown Distributor";
+    const distShort = dist.length > 14 ? `${dist.slice(0, 8)}...${dist.slice(-6)}` : dist;
+    const tempClass = isBreach ? "bad" : "ok";
+    const tempTag = isBreach ? "(TEMPERATURE BREACH!)" : "(Safe & Compliant)";
+
+    const proofLink = rec.imageCID ? `
+      <div class="timeline-proof" style="margin-top:6px;">
+        <a href="${BACKEND_URL}/ipfs/${escapeHtml(rec.imageCID)}" target="_blank" rel="noopener">
+          View Thermometer Photo Proof (IPFS: ${escapeHtml(rec.imageCID.slice(0, 10))}...)
+        </a>
+      </div>
+    ` : "";
+
+    itemsHtml += `
+      <div class="timeline-item ${isBreach ? "breach" : ""}">
+        <div class="timeline-content">
+          <div class="timeline-header">
+            <span class="timeline-loc">Checkpoint #${idx + 1}: ${escapeHtml(rec.location || "In Transit")}</span>
+            <span class="timeline-time">${timeStr}</span>
+          </div>
+          <div class="timeline-temp ${tempClass}">
+            Recorded Temperature: ${tempNum}°C <span style="font-size:0.75rem; font-weight:normal;">${tempTag}</span>
+          </div>
+          <div style="font-size:0.82rem; color:var(--text-muted); margin-top:4px;">
+            Logged by Distributor: <code title="${escapeHtml(dist)}">${escapeHtml(distShort)}</code>
+          </div>
+          ${proofLink}
+        </div>
+      </div>
+    `;
+  });
+
+  return itemsHtml;
+}
