@@ -47,21 +47,10 @@
     <div id="unauthorizedCard" class="card hidden" style="text-align:center; padding:40px 24px; border:2px solid #fecdd3; background:#fff1f2;">
       <h2 style="color:var(--danger); margin-bottom:8px;">Access Denied</h2>
       <p id="unauthorizedText" style="color:#9f1239; margin-bottom:20px; font-weight:500;">
-        Your connected wallet is not registered as an authorized Manufacturer or Admin.
+        Your connected wallet is not registered as an authorized Manufacturer.
       </p>
       <p style="color:#9f1239; font-size:0.85rem;">Switch account from the MetaMask or Rabby extension in your browser toolbar, or go back to the home page.</p>
       <a href="index.html" class="btn btn-outline" style="margin-top:16px;">← Back to Home</a>
-    </div>
-
-    <!-- ADMIN NOTICE -->
-    <div id="adminNoticeCard" class="card hidden" style="background:#e0f2fe; border:1px solid #7dd3fc; margin-bottom:20px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <div>
-          <strong style="color:#0369a1;">Connected as Contract Admin</strong>
-          <p style="font-size:0.85rem; color:#0c4a6e;">You have full privileges to mint batches here, or manage supply-chain permissions in the Admin Portal.</p>
-        </div>
-        <a href="admin.html" class="btn btn-primary" style="font-size:0.85rem; padding:6px 14px;">Open Admin RBAC Portal →</a>
-      </div>
     </div>
 
     <!-- MANUFACTURER BATCH REGISTRATION -->
@@ -210,12 +199,10 @@
       const unconnected = document.getElementById("unconnectedCard");
       const unauthorized = document.getElementById("unauthorizedCard");
       const unauthText = document.getElementById("unauthorizedText");
-      const adminNotice = document.getElementById("adminNoticeCard");
       const mfgPanel = document.getElementById("manufacturerPanel");
 
       unconnected.classList.add("hidden");
       unauthorized.classList.add("hidden");
-      adminNotice.classList.add("hidden");
       mfgPanel.classList.add("hidden");
 
       if (!sharedAddress) {
@@ -228,18 +215,14 @@
         return;
       }
 
-      if (sharedRole === "admin") {
-        adminNotice.classList.remove("hidden");
-        mfgPanel.classList.remove("hidden");
-        return;
-      }
-
       unauthorized.classList.remove("hidden");
       const addrStr = `${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}`;
-      if (sharedRole === "distributor") {
-        unauthText.textContent = `Connected as Distributor (${addrStr}). This portal is for Manufacturers only.`;
+      if (sharedRole === "admin") {
+        unauthText.innerHTML = `Connected as <strong>Administrator</strong> (${addrStr}). Administrator accounts are restricted to the Administrator Portal and cannot access the Manufacturer Portal.<br><a href="admin.html" class="btn btn-primary" style="margin-top:14px; display:inline-block;">Open Administrator Portal →</a>`;
+      } else if (sharedRole === "distributor") {
+        unauthText.textContent = `Connected as Distributor (${addrStr}). This portal is for authorized Manufacturers only.`;
       } else {
-        unauthText.textContent = `Wallet (${addrStr}) is not registered as an authorized Manufacturer or Admin.`;
+        unauthText.textContent = `Wallet (${addrStr}) is not registered as an authorized Manufacturer.`;
       }
     }
 
@@ -272,10 +255,23 @@
 
         showAlert(`Batch "${batchId}" successfully minted to blockchain!`, "success");
 
+        // Register batch with backend registry and localStorage
+        try {
+          const fd = new FormData();
+          fd.append("batch_id", batchId);
+          fetch(`${BACKEND_URL}/api/batch/register`, { method: "POST", body: fd }).catch(() => {});
+
+          const stored = JSON.parse(localStorage.getItem("sanjeevani_batches") || "[]");
+          if (!stored.includes(batchId)) {
+            stored.push(batchId);
+            localStorage.setItem("sanjeevani_batches", JSON.stringify(stored));
+          }
+        } catch (e) {}
+
         const qrBox = document.getElementById("qrcodeBox");
         qrBox.innerHTML = "";
 
-        const verifyUrl = `${window.location.origin}/verify.html?batch=${encodeURIComponent(batchId)}`;
+        const verifyUrl = getVerifyUrl(batchId);
         new QRCode(qrBox, { text: verifyUrl, width: 200, height: 200 });
 
         document.getElementById("qrLabelText").textContent = `Scan URL: ${verifyUrl}`;
@@ -286,6 +282,15 @@
         console.error("Mint error:", err);
         showAlert("Minting failed: " + (err.reason || err.message), "danger");
       }
+    }
+
+    function getVerifyUrl(batchId) {
+      const cur = new URL(window.location.href);
+      if (cur.pathname.includes("/frontend/")) {
+        return new URL(`verify.html?batch=${encodeURIComponent(batchId)}`, window.location.href).href;
+      }
+      const basePath = cur.pathname.substring(0, cur.pathname.lastIndexOf("/") + 1);
+      return `${cur.origin}${basePath}frontend/verify.html?batch=${encodeURIComponent(batchId)}`;
     }
   </script>
 </body>

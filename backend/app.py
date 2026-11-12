@@ -1,8 +1,10 @@
+import json
+from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from backend.config import w3, contract, CONTRACT_ADDRESS, CONTRACT_ABI, DEPLOYMENT_CONFIG, RPC_URL
+from backend.config import w3, contract, CONTRACT_ADDRESS, CONTRACT_ABI, DEPLOYMENT_CONFIG, RPC_URL, BUILD_DIR
 from backend.services.ipfs_service import save_image_to_ipfs, get_ipfs_image_path
 from backend.services.ocr_service import verify_thermometer_reading
 
@@ -132,3 +134,101 @@ def fetch_batch_data(batch_id: str):
         }
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Batch not found: {str(e)}")
+
+BATCHES_TMP_FILE = Path("/tmp/sanjeevani_known_batches.json")
+LEGACY_BATCHES_FILE = BUILD_DIR / "known_batches.json"
+
+def get_known_batches():
+    batches = []
+    if BATCHES_TMP_FILE.exists():
+        try:
+            with open(BATCHES_TMP_FILE, "r") as f:
+                batches.extend(json.load(f))
+        except Exception:
+            pass
+    if LEGACY_BATCHES_FILE.exists():
+        try:
+            with open(LEGACY_BATCHES_FILE, "r") as f:
+                batches.extend(json.load(f))
+        except Exception:
+            pass
+    return list(dict.fromkeys(batches))
+
+def save_known_batches(batches_list):
+    try:
+        with open(BATCHES_TMP_FILE, "w") as f:
+            json.dump(list(dict.fromkeys(batches_list)), f, indent=2)
+    except Exception as e:
+        print("Error saving known batches:", e)
+
+@app.post("/api/batch/register")
+def register_batch(batch_id: str = Form(...)):
+    """Registers a freshly minted batch ID so it appears immediately across all portals."""
+    known = get_known_batches()
+    if batch_id and batch_id not in known:
+        known.append(batch_id)
+        save_known_batches(known)
+    return {"status": "ok", "batchId": batch_id}
+
+@app.get("/api/batches")
+def list_all_batches():
+    """
+    Lists all batches minted on the blockchain along with their real-time
+    parameters, checkpoint milestones, and complete distributor transit paths.
+    """
+    batch_ids = list(get_known_batches())
+
+    # Auto-discover batch IDs by decoding BatchMinted transaction inputs
+    try:
+        events = contract.events.BatchMinted().get_logs(from_block=0)
+        for evt in events:
+            tx_hash = evt.get("transactionHash")
+            if tx_hash:
+                try:
+                    tx = w3.eth.get_transaction(tx_hash)
+                    _, params = contract.decode_function_input(tx["input"])
+                    b_id = params.get("_batchId")
+                    if b_id and b_id not in batch_ids:
+                        batch_ids.append(b_id)
+                except Exception as tx_err:
+                    print("Could not decode tx for batch event:", tx_err)
+    except Exception as evt_err:
+        print("Batch event logs query notice:", evt_err)
+
+    if batch_ids:
+        save_known_batches(batch_ids)
+
+    batches = []
+    for b_id in batch_ids:
+        try:
+            details = contract.functions.getBatchDetails(b_id).call()
+            history = contract.functions.getBatchHistory(b_id).call()
+            timeline = []
+            for rec in history:
+                timeline.append({
+                    "location": rec[0],
+                    "temperature": rec[1],
+                    "imageCID": rec[2],
+                    "ipfsUrl": f"/ipfs/{rec[2]}",
+                    "timestamp": rec[3],
+                    "loggedBy": rec[4]
+                })
+            min_cp = details[5]
+            cp_count = len(timeline)
+            batches.append({
+                "batchId": b_id,
+                "medicineName": details[0],
+                "manufacturer": details[1],
+                "expiryDate": details[2],
+                "minTemp": details[3],
+                "maxTemp": details[4],
+                "minCheckpoints": min_cp,
+                "checkpointCount": cp_count,
+                "isUnderDocumented": cp_count < min_cp,
+                "isCompromised": details[7],
+                "history": timeline
+            })
+        except Exception:
+            continue
+
+    return {"batches": batches, "count": len(batches)}

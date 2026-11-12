@@ -709,3 +709,167 @@ input:focus, select:focus {
   background: #ffe4e6;
   border-color: #fda4af;
 }
+
+/* =============================================
+   HORIZONTAL JOURNEY TIMELINE
+   ============================================= */
+.h-timeline-wrapper {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+.h-timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.h-timeline-header h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.h-timeline-scroll {
+  overflow-x: auto;
+  padding: 10px 4px 18px 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.h-timeline-track {
+  display: flex;
+  align-items: flex-start;
+  min-width: max-content;
+  position: relative;
+}
+
+.h-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  width: 175px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+/* Connecting Horizontal Line Between Steps */
+.h-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  width: 100%;
+  height: 3px;
+  background: #cbd5e1;
+  z-index: 1;
+}
+
+.h-step.completed:not(:last-child)::after {
+  background: var(--success);
+}
+
+.h-step.breached:not(:last-child)::after {
+  background: var(--danger);
+}
+
+.h-step.pending:not(:last-child)::after {
+  background: repeating-linear-gradient(90deg, #cbd5e1, #cbd5e1 6px, transparent 6px, transparent 12px);
+}
+
+.h-node {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #475569;
+  z-index: 2;
+  transition: all 0.2s ease;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.h-step.origin .h-node {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: #e0f2fe;
+}
+
+.h-step.completed .h-node {
+  border-color: var(--success);
+  color: white;
+  background: var(--success);
+}
+
+.h-step.breached .h-node {
+  border-color: var(--danger);
+  color: white;
+  background: var(--danger);
+}
+
+.h-step.pending .h-node {
+  border-color: #cbd5e1;
+  color: #94a3b8;
+  background: #f8fafc;
+  border-style: dashed;
+}
+
+.h-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 0 6px;
+}
+
+.h-loc {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+.h-temp {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 3px;
+}
+
+.h-temp.ok {
+  color: var(--success);
+}
+
+.h-temp.bad {
+  color: var(--danger);
+}
+
+.h-time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.h-proof {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  margin-top: 4px;
+}
+
+.h-proof:hover {
+  text-decoration: underline;
+}

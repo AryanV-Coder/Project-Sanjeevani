@@ -19,15 +19,24 @@ const BOOTSTRAP_ROLES = {
 // EIP-6963 Multi-Wallet Discovery: MetaMask Priority 1, Rabby Priority 2
 let eip6963Providers = {
   metamask: null,
-  rabby: null
+  metamaskInfo: null,
+  rabby: null,
+  rabbyInfo: null
 };
 
+// Listen for EIP-6963 announcements continuously
 window.addEventListener("eip6963:announceProvider", (event) => {
+  if (!event.detail || !event.detail.info) return;
   const { info, provider } = event.detail;
-  if (info && info.rdns === "io.metamask") {
+  const rdns = (info.rdns || "").toLowerCase();
+  const name = (info.name || "").toLowerCase();
+
+  if (rdns.includes("metamask") || name.includes("metamask")) {
     eip6963Providers.metamask = provider;
-  } else if (info && info.rdns === "io.rabby") {
+    eip6963Providers.metamaskInfo = info;
+  } else if (rdns.includes("rabby") || name.includes("rabby")) {
     eip6963Providers.rabby = provider;
+    eip6963Providers.rabbyInfo = info;
   }
 });
 window.dispatchEvent(new Event("eip6963:requestProvider"));
@@ -38,6 +47,55 @@ let sharedSigner = null;
 let sharedContract = null;
 let sharedAddress = null;
 let sharedRole = "guest"; // 'admin', 'manufacturer', 'distributor', or 'guest'
+let activeWeb3Provider = null;
+
+/**
+ * Attaches account switch listener strictly to the ACTIVE provider currently connected.
+ * Never listens to competing inactive wallet extensions to avoid cross-wallet reload loops.
+ */
+function bindActiveProvider(ethProvider) {
+  if (!ethProvider || typeof ethProvider.on !== "function") return;
+  if (activeWeb3Provider === ethProvider) return;
+  activeWeb3Provider = ethProvider;
+
+  ethProvider.on("accountsChanged", async (accounts) => {
+    const isHome = () => {
+      const p = window.location.pathname;
+      return p === "/" || p.endsWith("/index.html") || p.endsWith("index.html") || p === "";
+    };
+
+    if (!accounts || accounts.length === 0) {
+      console.log("Wallet disconnected by user in extension");
+      sharedAddress = null;
+      sharedRole = "guest";
+      updateNavbarWallet();
+      if (!isHome()) {
+        window.location.href = "index.html";
+      } else if (typeof onAccountChanged === "function") {
+        onAccountChanged(null, "guest");
+      }
+      return;
+    }
+
+    const newAddr = accounts[0];
+    if (sharedAddress && newAddr && sharedAddress.toLowerCase() !== newAddr.toLowerCase()) {
+      console.log(`Account switched from ${sharedAddress} to ${newAddr}`);
+      sharedAddress = newAddr;
+      if (sharedConfig && sharedContract) {
+        sharedRole = await detectRole(sharedContract, sharedAddress);
+      }
+      updateNavbarWallet();
+
+      // If user is inside an internal portal (e.g. admin or manufacturer) and changes account:
+      // Redirect to home page so portal permissions re-evaluate!
+      if (!isHome()) {
+        window.location.href = "index.html";
+      } else if (typeof onAccountChanged === "function") {
+        onAccountChanged(sharedAddress, sharedRole);
+      }
+    }
+  });
+}
 
 /**
  * Loads contract address, ABI, and role configuration from FastAPI backend
@@ -55,50 +113,74 @@ async function loadConfig() {
   }
 }
 
-/**
- * Gets injected Web3 provider: STRICTLY MetaMask first, Rabby secondary
- */
-function getWeb3Provider() {
-  // 1. EIP-6963 MetaMask (Priority 1)
-  if (eip6963Providers.metamask) {
-    return eip6963Providers.metamask;
-  }
+function findMetaMaskDirect() {
+  // 1. EIP-6963 MetaMask
+  if (eip6963Providers.metamask) return eip6963Providers.metamask;
 
-  // 2. window.ethereum.providers: find MetaMask (Priority 1)
+  // 2. window.ethereum.providers array (standard multi-extension array)
   if (window.ethereum && Array.isArray(window.ethereum.providers) && window.ethereum.providers.length) {
-    const mm = window.ethereum.providers.find(p => p.isMetaMask && !p.isRabby);
+    const mm = window.ethereum.providers.find(p => (p.isMetaMask && !p.isRabby && !p.isPhantom && !p.isBraveWallet) || (p._metamask && !p.isRabby));
     if (mm) return mm;
   }
 
-  // 3. window.ethereum pure MetaMask (Priority 1)
+  // 3. window.ethereum.providerMap (EIP-5749)
+  if (window.ethereum && window.ethereum.providerMap && typeof window.ethereum.providerMap.get === "function") {
+    const mm = window.ethereum.providerMap.get("MetaMask");
+    if (mm && !mm.isRabby) return mm;
+  }
+
+  // 4. window.ethereum pure MetaMask
   if (window.ethereum && window.ethereum.isMetaMask && !window.ethereum.isRabby) {
     return window.ethereum;
   }
 
-  // 4. EIP-6963 Rabby (Priority 2)
-  if (eip6963Providers.rabby) {
-    return eip6963Providers.rabby;
+  return null;
+}
+
+function findRabbyDirect() {
+  if (eip6963Providers.rabby) return eip6963Providers.rabby;
+  if (window.rabby) return window.rabby;
+  if (window.ethereum && window.ethereum.isRabby) return window.ethereum;
+  if (window.ethereum && Array.isArray(window.ethereum.providers)) {
+    const rb = window.ethereum.providers.find(p => p.isRabby);
+    if (rb) return rb;
+  }
+  return null;
+}
+
+/**
+ * Asynchronously resolves injected Web3 provider: STRICTLY MetaMask first, Rabby secondary
+ */
+async function getWeb3ProviderAsync() {
+  // 1. Try to find MetaMask immediately
+  let mm = findMetaMaskDirect();
+  if (mm) return mm;
+
+  // 2. Request EIP-6963 and wait briefly (up to 180ms) for MetaMask to announce
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+  for (let i = 0; i < 7; i++) {
+    await new Promise(r => setTimeout(r, 25));
+    mm = findMetaMaskDirect();
+    if (mm) return mm;
   }
 
-  // 5. Dedicated window.rabby (Priority 2)
-  if (window.rabby) {
-    return window.rabby;
-  }
+  // 3. Fallback to Rabby (Priority 2)
+  const rb = findRabbyDirect();
+  if (rb) return rb;
 
-  // 6. window.ethereum with isRabby (Priority 2)
-  if (window.ethereum && window.ethereum.isRabby) {
-    return window.ethereum;
-  }
-
-  // 7. General fallback
+  // 4. Fallback to window.ethereum
   return window.ethereum || null;
 }
 
-function getWalletName() {
-  const p = getWeb3Provider();
+function getWeb3Provider() {
+  return findMetaMaskDirect() || findRabbyDirect() || window.ethereum || null;
+}
+
+function getWalletName(provider) {
+  const p = provider || getWeb3Provider();
   if (!p) return "Web3 Wallet";
-  if (p.isMetaMask && !p.isRabby) return "MetaMask";
-  if (p.isRabby) return "Rabby";
+  if (p === eip6963Providers.metamask || (p.isMetaMask && !p.isRabby)) return "MetaMask";
+  if (p === eip6963Providers.rabby || p.isRabby) return "Rabby";
   return "Web3 Wallet";
 }
 
@@ -106,11 +188,13 @@ function getWalletName() {
  * Connects the wallet (prioritizes MetaMask, Rabby secondary)
  */
 async function connectWallet() {
-  const ethProvider = getWeb3Provider();
+  const ethProvider = await getWeb3ProviderAsync();
   if (!ethProvider) {
     alert("No Web3 wallet detected. Please install MetaMask or Rabby Wallet extension in this browser.");
     return null;
   }
+
+  bindActiveProvider(ethProvider);
 
   try {
     sharedProvider = new ethers.BrowserProvider(ethProvider);
@@ -163,8 +247,10 @@ function disconnectWallet() {
  * Auto-detect wallet on page load + listen for account switches
  */
 async function autoDetectWallet() {
-  const ethProvider = getWeb3Provider();
+  const ethProvider = await getWeb3ProviderAsync();
   if (!ethProvider) return;
+
+  bindActiveProvider(ethProvider);
 
   sharedProvider = new ethers.BrowserProvider(ethProvider);
   try {
@@ -186,47 +272,39 @@ async function autoDetectWallet() {
   } catch (e) {
     updateNavbarWallet();
   }
-
-  // When user switches account in Rabby toolbar → redirect to home so portal cards re-evaluate
-  ethProvider.on("accountsChanged", async (newAccounts) => {
-    if (newAccounts.length > 0) {
-      sharedAddress = newAccounts[0];
-      sharedSigner = await sharedProvider.getSigner();
-      if (sharedConfig) {
-        sharedContract = new ethers.Contract(sharedConfig.contractAddress, sharedConfig.abi, sharedSigner);
-        sharedRole = await detectRole(sharedContract, sharedAddress);
-      }
-    } else {
-      sharedAddress = null;
-      sharedSigner = null;
-      sharedRole = "guest";
-    }
-    updateNavbarWallet();
-
-    // Always redirect to home on account switch so user picks the right portal
-    const path = window.location.pathname;
-    const isHome = path === "/" || path.endsWith("/index.html") || path.endsWith("index.html") || path === "";
-    if (!isHome) {
-      window.location.href = "index.html";
-    } else if (typeof onAccountChanged === "function") {
-      onAccountChanged(sharedAddress, sharedRole);
-    }
-  });
 }
 
 /**
- * Queries role with fallback to configuration roles
+ * Queries role with ON-CHAIN smart contract as absolute source of truth.
+ * Revocation by admin takes immediate effect.
  */
 async function detectRole(contract, address) {
   if (!address) return "guest";
   const cleanAddr = address.toLowerCase();
 
-  // 1. Instant bootstrap lookup (hardcoded Ganache addresses, zero latency)
-  if (BOOTSTRAP_ROLES.admin.toLowerCase() === cleanAddr) return "admin";
-  if (BOOTSTRAP_ROLES.manufacturer.toLowerCase() === cleanAddr) return "manufacturer";
-  if (BOOTSTRAP_ROLES.distributors.some(d => d.toLowerCase() === cleanAddr)) return "distributor";
+  // 1. PRIMARY SOURCE OF TRUTH: Query live smart contract on-chain
+  if (contract) {
+    try {
+      // Check admin
+      const admin = await contract.admin();
+      if (admin && admin.toLowerCase() === cleanAddr) return "admin";
 
-  // 2. Fast, offline-proof lookup from deployment config
+      // Check manufacturer status on-chain
+      const isMfg = await contract.manufacturers(address);
+      if (isMfg) return "manufacturer";
+
+      // Check distributor status on-chain
+      const isDist = await contract.distributors(address);
+      if (isDist) return "distributor";
+
+      // Successfully queried on-chain and address has no active roles
+      return "guest";
+    } catch (err) {
+      console.warn("On-chain role query error, falling back to static config:", err);
+    }
+  }
+
+  // 2. Fallback ONLY if contract instance is not available or RPC failed
   if (sharedConfig && sharedConfig.roles) {
     const roles = sharedConfig.roles;
     if (roles.admin && roles.admin.toLowerCase() === cleanAddr) return "admin";
@@ -235,19 +313,9 @@ async function detectRole(contract, address) {
     if (Array.isArray(roles.distributors) && roles.distributors.some(d => d.toLowerCase() === cleanAddr)) return "distributor";
   }
 
-  // 3. Query smart contract on-chain for dynamic roles
-  if (contract) {
-    try {
-      const admin = await contract.admin();
-      if (admin && admin.toLowerCase() === cleanAddr) return "admin";
-      const isMfg = await contract.manufacturers(address);
-      if (isMfg) return "manufacturer";
-      const isDist = await contract.distributors(address);
-      if (isDist) return "distributor";
-    } catch (err) {
-      console.warn("On-chain role query warning:", err);
-    }
-  }
+  if (BOOTSTRAP_ROLES.admin.toLowerCase() === cleanAddr) return "admin";
+  if (BOOTSTRAP_ROLES.manufacturer.toLowerCase() === cleanAddr) return "manufacturer";
+  if (BOOTSTRAP_ROLES.distributors.some(d => d.toLowerCase() === cleanAddr)) return "distributor";
 
   return "guest";
 }
@@ -396,7 +464,13 @@ function handleDecodedQr(decodedText) {
   }
 
   if (batchId) {
-    window.location.href = `verify.html?batch=${encodeURIComponent(batchId)}`;
+    const cur = new URL(window.location.href);
+    if (cur.pathname.includes("/frontend/")) {
+      window.location.href = `verify.html?batch=${encodeURIComponent(batchId)}`;
+    } else {
+      const basePath = cur.pathname.substring(0, cur.pathname.lastIndexOf("/") + 1);
+      window.location.href = `${cur.origin}${basePath}frontend/verify.html?batch=${encodeURIComponent(batchId)}`;
+    }
   } else {
     alert("Could not extract a valid Batch ID from this QR code.");
   }

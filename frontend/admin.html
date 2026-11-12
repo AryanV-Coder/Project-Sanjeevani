@@ -98,6 +98,57 @@
       </div>
     </div>
 
+    <!-- 4. ALL MEDICINE BATCHES & TRANSIT PATHS (Visible when authorized) -->
+    <div id="adminBatchesSection" class="hidden" style="margin-top:32px;">
+      
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+        <div>
+          <h2 style="font-size:1.35rem; font-weight:700; margin-bottom:4px;">All Medicine Batches & Transit Paths</h2>
+          <p style="color:var(--text-muted); font-size:0.9rem;">Global ledger audit: inspect all manufactured batches, temperature integrity, and real-time distributor transit paths.</p>
+        </div>
+        <button id="btnRefreshBatches" class="btn btn-outline" style="font-size:0.85rem; padding:6px 14px;">Refresh Ledger</button>
+      </div>
+
+      <!-- Quick Metrics Grid -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
+        <div class="card" style="padding:16px; text-align:center; margin-bottom:0;">
+          <div style="font-size:0.8rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total Batches</div>
+          <div id="statTotalBatches" style="font-size:1.8rem; font-weight:700; color:var(--text-primary); margin-top:4px;">0</div>
+        </div>
+        <div class="card" style="padding:16px; text-align:center; margin-bottom:0; border-color:#bbf7d0; background:#f0fdf4;">
+          <div style="font-size:0.8rem; color:#15803d; font-weight:600; text-transform:uppercase;">Fully Verified</div>
+          <div id="statSafeBatches" style="font-size:1.8rem; font-weight:700; color:#16a34a; margin-top:4px;">0</div>
+        </div>
+        <div class="card" style="padding:16px; text-align:center; margin-bottom:0; border-color:#fde68a; background:#fffbeb;">
+          <div style="font-size:0.8rem; color:#b45309; font-weight:600; text-transform:uppercase;">In-Transit / Incomplete</div>
+          <div id="statIncompleteBatches" style="font-size:1.8rem; font-weight:700; color:#d97706; margin-top:4px;">0</div>
+        </div>
+        <div class="card" style="padding:16px; text-align:center; margin-bottom:0; border-color:#fecdd3; background:#fff1f2;">
+          <div style="font-size:0.8rem; color:#be123c; font-weight:600; text-transform:uppercase;">Compromised</div>
+          <div id="statCompromisedBatches" style="font-size:1.8rem; font-weight:700; color:#e11d48; margin-top:4px;">0</div>
+        </div>
+      </div>
+
+      <!-- Search & Filter Controls -->
+      <div class="card" style="padding:14px 20px; margin-bottom:20px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+        <input type="text" id="adminBatchSearch" placeholder="Filter by Batch ID, Medicine name, or Manufacturer..." style="flex:1; min-width:240px; padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:0.9rem;" />
+        <select id="adminBatchFilter" style="padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:0.9rem; min-width:180px;">
+          <option value="all">All Batches</option>
+          <option value="safe">Fully Verified (Safe)</option>
+          <option value="incomplete">In-Transit / Incomplete</option>
+          <option value="compromised">Compromised</option>
+        </select>
+      </div>
+
+      <!-- Batches Container -->
+      <div id="adminBatchesList">
+        <div class="card" style="text-align:center; padding:32px; color:var(--text-muted);">
+          Loading batch custody ledgers from blockchain...
+        </div>
+      </div>
+
+    </div>
+
   </main>
 
   <script src="common.js"></script>
@@ -117,10 +168,16 @@
 
       // Form submit
       document.getElementById("adminRoleForm").addEventListener("submit", handleRoleUpdate);
+
+      // Batches audit filters & refresh
+      document.getElementById("btnRefreshBatches").addEventListener("click", loadAllBatches);
+      document.getElementById("adminBatchSearch").addEventListener("input", renderAdminBatches);
+      document.getElementById("adminBatchFilter").addEventListener("change", renderAdminBatches);
     });
 
     async function handleConnect() {
       await connectWallet();
+      if (sharedConfig) await displayConfiguredRoles(sharedConfig);
       renderAdminPortalState();
     }
 
@@ -134,12 +191,14 @@
       const unauthText = document.getElementById("unauthorizedText");
       const adminPanel = document.getElementById("adminPanel");
       const rolesCard = document.getElementById("rolesCard");
+      const batchesSection = document.getElementById("adminBatchesSection");
 
       // Hide all states first
       unconnected.classList.add("hidden");
       unauthorized.classList.add("hidden");
       adminPanel.classList.add("hidden");
       rolesCard.classList.add("hidden");
+      if (batchesSection) batchesSection.classList.add("hidden");
 
       // 1. Not connected
       if (!sharedAddress) {
@@ -151,6 +210,10 @@
       if (sharedRole === "admin") {
         adminPanel.classList.remove("hidden");
         rolesCard.classList.remove("hidden");
+        if (batchesSection) {
+          batchesSection.classList.remove("hidden");
+          loadAllBatches();
+        }
         return;
       }
 
@@ -164,25 +227,308 @@
       }
     }
 
-    function displayConfiguredRoles(cfg) {
+    let allAdminBatches = [];
+
+    async function loadAllBatches() {
+      const container = document.getElementById("adminBatchesList");
+      if (!container) return;
+
+      container.innerHTML = `
+        <div class="card" style="text-align:center; padding:32px; color:var(--text-muted);">
+          Scanning smart contract and IPFS logs for all medicine batches...
+        </div>
+      `;
+
+      const candidateBatchIds = new Set();
+
+      // 1. Gather any batch IDs saved in localStorage
+      try {
+        const stored = JSON.parse(localStorage.getItem("sanjeevani_batches") || "[]");
+        if (Array.isArray(stored)) {
+          stored.forEach(id => { if (id) candidateBatchIds.add(id); });
+        }
+      } catch (e) {}
+
+      // 2. Try FastAPI backend /api/batches first
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/batches`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.batches)) {
+            allAdminBatches = data.batches;
+            allAdminBatches.forEach(b => {
+              if (b.batchId) candidateBatchIds.add(b.batchId);
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Backend batch list notice, checking on-chain logs:", err);
+      }
+
+      // 3. Scan on-chain transactions to decode any missing batch IDs directly from blockchain calldata
+      if (sharedContract && sharedProvider) {
+        try {
+          const filter = sharedContract.filters.BatchMinted();
+          const events = await sharedContract.queryFilter(filter, 0, "latest");
+
+          for (const evt of events) {
+            try {
+              const tx = await sharedProvider.getTransaction(evt.transactionHash);
+              if (tx && tx.data) {
+                const parsed = sharedContract.interface.parseTransaction({ data: tx.data });
+                if (parsed && parsed.args) {
+                  const bId = parsed.args._batchId || parsed.args[0];
+                  if (bId && typeof bId === "string") {
+                    candidateBatchIds.add(bId);
+                  }
+                }
+              }
+            } catch (txErr) {
+              console.warn("Could not decode tx calldata:", txErr);
+            }
+          }
+        } catch (filterErr) {
+          console.warn("Event filter query notice:", filterErr);
+        }
+      }
+
+      // 4. Ensure details & history are loaded for every discovered batch ID
+      const existingIds = new Set(allAdminBatches.map(b => b.batchId));
+      for (const bId of candidateBatchIds) {
+        if (!existingIds.has(bId) && sharedContract) {
+          try {
+            const details = await sharedContract.getBatchDetails(bId);
+            const history = await sharedContract.getBatchHistory(bId);
+            const timeline = history.map(rec => ({
+              location: rec[0] || rec.location,
+              temperature: Number(rec[1] || rec.temperature),
+              imageCID: rec[2] || rec.imageCID,
+              ipfsUrl: `/ipfs/${rec[2] || rec.imageCID}`,
+              timestamp: Number(rec[3] || rec.timestamp),
+              loggedBy: rec[4] || rec.loggedBy
+            }));
+            const minCp = Number(details[5] || details.minCheckpoints);
+            allAdminBatches.push({
+              batchId: bId,
+              medicineName: details[0] || details.medicineName,
+              manufacturer: details[1] || details.manufacturer,
+              expiryDate: Number(details[2] || details.expiryDate),
+              minTemp: Number(details[3] || details.minTemp),
+              maxTemp: Number(details[4] || details.maxTemp),
+              minCheckpoints: minCp,
+              checkpointCount: timeline.length,
+              isUnderDocumented: timeline.length < minCp,
+              isCompromised: Boolean(details[7] || details.isCompromised),
+              history: timeline
+            });
+            existingIds.add(bId);
+          } catch (detailsErr) {
+            console.warn("Could not load details for batch ID:", bId, detailsErr);
+          }
+        }
+      }
+
+      // Save all confirmed batch IDs to localStorage
+      try {
+        localStorage.setItem("sanjeevani_batches", JSON.stringify(Array.from(candidateBatchIds)));
+      } catch (e) {}
+
+      renderAdminBatches();
+    }
+
+    function renderAdminBatches() {
+      const container = document.getElementById("adminBatchesList");
+      if (!container) return;
+
+      const searchInput = document.getElementById("adminBatchSearch");
+      const filterSelect = document.getElementById("adminBatchFilter");
+
+      const query = (searchInput ? searchInput.value : "").trim().toLowerCase();
+      const filter = filterSelect ? filterSelect.value : "all";
+
+      // Update Quick Metrics
+      const total = allAdminBatches.length;
+      const safeCount = allAdminBatches.filter(b => !b.isCompromised && !b.isUnderDocumented).length;
+      const incompleteCount = allAdminBatches.filter(b => !b.isCompromised && b.isUnderDocumented).length;
+      const compromisedCount = allAdminBatches.filter(b => b.isCompromised).length;
+
+      document.getElementById("statTotalBatches").textContent = total;
+      document.getElementById("statSafeBatches").textContent = safeCount;
+      document.getElementById("statIncompleteBatches").textContent = incompleteCount;
+      document.getElementById("statCompromisedBatches").textContent = compromisedCount;
+
+      // Filter list
+      const filtered = allAdminBatches.filter(b => {
+        if (filter === "safe" && (b.isCompromised || b.isUnderDocumented)) return false;
+        if (filter === "incomplete" && (b.isCompromised || !b.isUnderDocumented)) return false;
+        if (filter === "compromised" && !b.isCompromised) return false;
+
+        if (query) {
+          const matchId = (b.batchId || "").toLowerCase().includes(query);
+          const matchName = (b.medicineName || "").toLowerCase().includes(query);
+          const matchMfg = (b.manufacturer || "").toLowerCase().includes(query);
+          const matchLoc = (b.history || []).some(h => (h.location || "").toLowerCase().includes(query));
+          if (!matchId && !matchName && !matchMfg && !matchLoc) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="card" style="text-align:center; padding:36px; color:var(--text-muted);">
+            <p style="font-size:1.05rem; font-weight:600; margin-bottom:6px;">No medicine batches found</p>
+            <p style="font-size:0.85rem;">${total === 0 ? "No batches have been minted on the blockchain yet." : "No batches match your search filter."}</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(b => {
+        const isExpired = Date.now() / 1000 > Number(b.expiryDate);
+        const expDateStr = new Date(Number(b.expiryDate) * 1000).toLocaleDateString();
+
+        let statusPill = "";
+        if (b.isCompromised) {
+          statusPill = `<span style="background:#fee2e2; color:#b91c1c; padding:3px 10px; border-radius:9999px; font-size:0.75rem; font-weight:700;">Compromised</span>`;
+        } else if (b.isUnderDocumented) {
+          statusPill = `<span style="background:#fef3c7; color:#b45309; padding:3px 10px; border-radius:9999px; font-size:0.75rem; font-weight:700;">In-Transit (${b.checkpointCount}/${b.minCheckpoints} Checkpoints)</span>`;
+        } else {
+          statusPill = `<span style="background:#dcfce7; color:#15803d; padding:3px 10px; border-radius:9999px; font-size:0.75rem; font-weight:700;">Fully Verified & Authentic</span>`;
+        }
+
+        let timelineHtml = "";
+        if (!b.history || b.history.length === 0) {
+          timelineHtml = `
+            <div style="background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px; padding:12px 16px; margin-top:14px; font-size:0.85rem; color:var(--text-muted);">
+              At manufacturer origin. No distributor transit checkpoints logged yet.
+            </div>
+          `;
+        } else {
+          const itemsHtml = b.history.map((rec, idx) => {
+            const isBreach = rec.temperature < b.minTemp || rec.temperature > b.maxTemp;
+            const timeStr = new Date(Number(rec.timestamp) * 1000).toLocaleString();
+            const distShort = rec.loggedBy ? `${rec.loggedBy.slice(0, 6)}...${rec.loggedBy.slice(-4)}` : "Unknown";
+            const tempClass = isBreach ? "bad" : "ok";
+            const tempTag = isBreach ? " (TEMPERATURE BREACH!)" : " (Safe & Compliant)";
+
+            const proofLink = rec.imageCID ? `
+              <div class="timeline-proof" style="margin-top:6px;">
+                <a href="${BACKEND_URL}${rec.ipfsUrl}" target="_blank">View Thermometer Photo Proof (IPFS: ${escapeHtml(rec.imageCID.slice(0, 10))}...)</a>
+              </div>
+            ` : "";
+
+            return `
+              <div class="timeline-item ${isBreach ? "breach" : ""}">
+                <div class="timeline-content">
+                  <div class="timeline-header">
+                    <span class="timeline-loc">Checkpoint #${idx + 1}: ${escapeHtml(rec.location)}</span>
+                    <span class="timeline-time">${timeStr}</span>
+                  </div>
+                  <div class="timeline-temp ${tempClass}">
+                    Recorded Temperature: ${rec.temperature}°C <span style="font-size:0.75rem; font-weight:normal;">${tempTag}</span>
+                  </div>
+                  <div style="font-size:0.8rem; color:var(--text-muted);">
+                    Logged by Distributor: <code>${distShort}</code>
+                  </div>
+                  ${proofLink}
+                </div>
+              </div>
+            `;
+          }).join("");
+
+          timelineHtml = `
+            <div style="margin-top:16px;">
+              <h4 style="font-size:0.9rem; font-weight:700; color:#334155; margin-bottom:12px;">Complete Transit Path (${b.history.length} checkpoints recorded):</h4>
+              <div class="timeline" style="margin-top:8px;">
+                ${itemsHtml}
+              </div>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="card" style="margin-bottom:20px; border-left: 4px solid ${b.isCompromised ? 'var(--danger)' : (b.isUnderDocumented ? '#f59e0b' : 'var(--success)')};">
+            
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+              <div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <h3 style="font-size:1.15rem; font-weight:700; margin:0;">${escapeHtml(b.medicineName)}</h3>
+                  <span style="font-family:monospace; font-size:0.82rem; background:#f1f5f9; padding:2px 8px; border-radius:4px; font-weight:600; color:#475569;">Batch ID: ${escapeHtml(b.batchId)}</span>
+                  ${statusPill}
+                </div>
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-top:4px; margin-bottom:0;">
+                  Manufacturer: <code>${escapeHtml(b.manufacturer)}</code>
+                </p>
+              </div>
+
+              <a href="verify.html?batch=${encodeURIComponent(b.batchId)}" target="_blank" class="btn btn-outline" style="font-size:0.8rem; padding:5px 12px;">
+                Open Customer View ↗
+              </a>
+            </div>
+
+            <!-- Specs Grid -->
+            <div style="display:flex; flex-wrap:wrap; gap:16px; font-size:0.82rem; color:#475569; background:#f8fafc; padding:10px 14px; border-radius:6px; margin-bottom:12px;">
+              <div><strong>Safe Temp Range:</strong> ${b.minTemp}°C to ${b.maxTemp}°C</div>
+              <div><strong>Expiry Date:</strong> ${expDateStr} ${isExpired ? '<span style="color:var(--danger); font-weight:bold;">(Expired)</span>' : ''}</div>
+              <div><strong>Required Checkpoints:</strong> ${b.checkpointCount} / ${b.minCheckpoints} verified</div>
+            </div>
+
+            ${timelineHtml}
+
+          </div>
+        `;
+      }).join("");
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    async function displayConfiguredRoles(cfg) {
       const listDiv = document.getElementById("rolesList");
       if (!cfg || !cfg.roles) {
         listDiv.textContent = "Could not load roles.";
         return;
       }
-      
+
+      let mfgStatus = "";
+      if (sharedContract && cfg.roles.manufacturer) {
+        try {
+          const active = await sharedContract.manufacturers(cfg.roles.manufacturer);
+          mfgStatus = active 
+            ? ' <span style="color:var(--success); font-weight:700;">[Active]</span>' 
+            : ' <span style="color:var(--danger); font-weight:700;">[Revoked]</span>';
+        } catch (e) {}
+      }
+
       let distHtml = "";
       if (cfg.roles.distributors && Array.isArray(cfg.roles.distributors)) {
-        distHtml = cfg.roles.distributors.map((d, i) => 
-          `<div><strong>Distributor #${i + 1}:</strong> ${d}</div>`
-        ).join("");
+        for (let i = 0; i < cfg.roles.distributors.length; i++) {
+          const d = cfg.roles.distributors[i];
+          let dStatus = "";
+          if (sharedContract) {
+            try {
+              const active = await sharedContract.distributors(d);
+              dStatus = active 
+                ? ' <span style="color:var(--success); font-weight:700;">[Active]</span>' 
+                : ' <span style="color:var(--danger); font-weight:700;">[Revoked]</span>';
+            } catch (e) {}
+          }
+          distHtml += `<div><strong>Distributor #${i + 1}:</strong> ${d}${dStatus}</div>`;
+        }
       } else if (cfg.roles.distributor) {
         distHtml = `<div><strong>Distributor #1:</strong> ${cfg.roles.distributor}</div>`;
       }
 
       listDiv.innerHTML = `
         <div><strong>Admin (Account 0):</strong> ${cfg.roles.admin || 'None'}</div>
-        <div><strong>Manufacturer (Account 1):</strong> ${cfg.roles.manufacturer || 'None'}</div>
+        <div><strong>Manufacturer (Account 1):</strong> ${cfg.roles.manufacturer || 'None'}${mfgStatus}</div>
         ${distHtml}
       `;
     }
@@ -212,11 +558,15 @@
           tx = await sharedContract.setDistributor(address, status);
         }
 
-        showAlert("Updating role on Ganache...", "info");
+        showAlert("Updating role on Ganache blockchain...", "info");
         await tx.wait();
 
-        showAlert(`Role update confirmed on blockchain: ${roleType} for ${address} is now ${status}!`, "success");
+        showAlert(`Role update confirmed on blockchain: ${roleType.toUpperCase()} for ${address} is now ${status ? "AUTHORIZED" : "REVOKED"}!`, "success");
         document.getElementById("adminRoleForm").reset();
+
+        if (sharedConfig) {
+          await displayConfiguredRoles(sharedConfig);
+        }
       } catch (err) {
         console.error("Role update error:", err);
         showAlert("Role update failed: " + (err.reason || err.message), "danger");

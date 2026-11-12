@@ -68,16 +68,18 @@
         showAlert("Connecting your Web3 wallet (MetaMask / Rabby)...", "info");
         const res = await connectWallet();
         renderHomeState();
-        if (res && (sharedRole === "manufacturer" || sharedRole === "admin")) {
+        if (res && sharedRole === "manufacturer") {
           window.location.href = "manufacturer.html";
         }
         return;
       }
 
-      if (sharedRole === "manufacturer" || sharedRole === "admin") {
+      if (sharedRole === "manufacturer") {
         window.location.href = "manufacturer.html";
+      } else if (sharedRole === "admin") {
+        showAlert("Access restricted: Administrator accounts cannot access the Manufacturer Portal. Please switch to an authorized Manufacturer wallet.", "danger");
       } else {
-        showAlert(`Access restricted: Manufacturer Portal requires Manufacturer authorization. Connected account (${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}) has role: ${sharedRole.toUpperCase()}. Please switch to Account 1 in MetaMask or Rabby.`, "danger");
+        showAlert(`Access restricted: Manufacturer Portal requires Manufacturer authorization. Connected account (${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}) has role: ${sharedRole.toUpperCase()}. Please switch to an authorized Manufacturer wallet.`, "danger");
       }
     }
 
