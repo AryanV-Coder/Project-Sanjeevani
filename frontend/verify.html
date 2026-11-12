@@ -145,6 +145,10 @@
 
       document.getElementById("connectWalletBtn").addEventListener("click", handleDistributorLogin);
       document.getElementById("btnHeaderLogTransit").addEventListener("click", () => {
+        if (sharedRole !== "distributor") {
+          showAlert("Access Restricted: Only authorized Distributors can log transit checkpoints.", "danger");
+          return;
+        }
         const panel = document.getElementById("distributorTransitPanel");
         panel.classList.toggle("hidden");
         if (!panel.classList.contains("hidden")) {
@@ -376,7 +380,8 @@
 
       if (sharedAddress) {
         if (loginBtn) loginBtn.classList.add("hidden");
-        const isDistributor = sharedRole === "distributor" || sharedRole === "admin";
+        // STRICT: Only distributor can see the + Log Checkpoint button
+        const isDistributor = sharedRole === "distributor";
         if (logBtn) {
           if (isDistributor) {
             logBtn.classList.remove("hidden");
@@ -396,8 +401,14 @@
     async function handleDistributorLogin() {
       const res = await connectWallet();
       updateDistributorNavbar();
-      if (res && (sharedRole === "distributor" || sharedRole === "admin")) {
-        openDistributorPanel();
+      if (res) {
+        if (sharedRole === "distributor") {
+          openDistributorPanel();
+        } else {
+          const roleLabel = sharedRole ? sharedRole.toUpperCase() : "GUEST / CUSTOMER";
+          const addr = sharedAddress ? ` (${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)})` : "";
+          showAlert(`Access Restricted: Only authorized Distributors can log transit checkpoints. Connected as ${roleLabel}${addr}. Administrators, Manufacturers, and Customers cannot log transit.`, "danger");
+        }
       }
     }
 
@@ -405,18 +416,36 @@
       const panel = document.getElementById("distributorTransitPanel");
       const warning = document.getElementById("distAuthWarning");
       const submitBtn = document.getElementById("transitSubmitBtn");
+      const locInput = document.getElementById("distLocation");
+      const tempInput = document.getElementById("distTemp");
+      const photoInput = document.getElementById("distPhoto");
 
       panel.classList.remove("hidden");
       panel.scrollIntoView({ behavior: "smooth" });
 
-      const isAllowed = sharedRole === "distributor" || sharedRole === "admin";
-      warning.classList.toggle("hidden", isAllowed);
-      submitBtn.disabled = !isAllowed;
+      const isDistributor = sharedRole === "distributor";
+      warning.classList.toggle("hidden", isDistributor);
+
+      if (!isDistributor) {
+        const roleLabel = sharedRole ? sharedRole.toUpperCase() : "GUEST / CUSTOMER";
+        const addrStr = sharedAddress ? ` (${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)})` : "";
+        warning.innerHTML = `<strong>Access Denied:</strong> Only authorized <strong>Distributors</strong> can log transit checkpoints.<br>Current connected role: <strong>${roleLabel}</strong>${addrStr}. Administrators, Manufacturers, and Customers cannot log transit. Please switch to an authorized Distributor wallet.`;
+        submitBtn.disabled = true;
+        if (locInput) locInput.disabled = true;
+        if (tempInput) tempInput.disabled = true;
+        if (photoInput) photoInput.disabled = true;
+      } else {
+        submitBtn.disabled = false;
+        if (locInput) locInput.disabled = false;
+        if (tempInput) tempInput.disabled = false;
+        if (photoInput) photoInput.disabled = false;
+      }
     }
 
     function onAccountChanged(address, role) {
       updateDistributorNavbar();
-      if (!document.getElementById("distributorTransitPanel").classList.contains("hidden")) {
+      const panel = document.getElementById("distributorTransitPanel");
+      if (!panel.classList.contains("hidden")) {
         openDistributorPanel();
       }
     }
@@ -425,6 +454,11 @@
       e.preventDefault();
       if (!sharedContract || !sharedSigner) {
         alert("Please connect your authorized Distributor wallet.");
+        return;
+      }
+
+      if (sharedRole !== "distributor") {
+        showAlert("Access Denied: Only authorized Distributors can log transit checkpoints. Administrators, Manufacturers, and Customers cannot.", "danger");
         return;
       }
 

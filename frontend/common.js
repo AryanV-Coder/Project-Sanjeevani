@@ -64,12 +64,18 @@ function bindActiveProvider(ethProvider) {
       return p === "/" || p.endsWith("/index.html") || p.endsWith("index.html") || p === "";
     };
 
+    const isVerify = () => {
+      const p = window.location.pathname;
+      return p.includes("verify.html");
+    };
+
     if (!accounts || accounts.length === 0) {
       console.log("Wallet disconnected by user in extension");
       sharedAddress = null;
+      sharedSigner = null;
       sharedRole = "guest";
       updateNavbarWallet();
-      if (!isHome()) {
+      if (!isHome() && !isVerify()) {
         window.location.href = "index.html";
       } else if (typeof onAccountChanged === "function") {
         onAccountChanged(null, "guest");
@@ -81,10 +87,31 @@ function bindActiveProvider(ethProvider) {
     if (sharedAddress && newAddr && sharedAddress.toLowerCase() !== newAddr.toLowerCase()) {
       console.log(`Account switched from ${sharedAddress} to ${newAddr}`);
       sharedAddress = newAddr;
+
+      // Re-bind signer and contract to the newly active account
+      if (sharedProvider) {
+        try {
+          sharedSigner = await sharedProvider.getSigner();
+          if (sharedConfig) {
+            sharedContract = new ethers.Contract(sharedConfig.contractAddress, sharedConfig.abi, sharedSigner);
+          }
+        } catch (e) {
+          console.warn("Could not re-acquire signer on account change:", e);
+        }
+      }
+
       if (sharedConfig && sharedContract) {
         sharedRole = await detectRole(sharedContract, sharedAddress);
       }
       updateNavbarWallet();
+
+      // On verify.html, STAY on the page and update UI in place without navigating away!
+      if (isVerify()) {
+        if (typeof onAccountChanged === "function") {
+          onAccountChanged(sharedAddress, sharedRole);
+        }
+        return;
+      }
 
       // If user is inside an internal portal (e.g. admin or manufacturer) and changes account:
       // Redirect to home page so portal permissions re-evaluate!
@@ -233,10 +260,11 @@ function disconnectWallet() {
   updateNavbarWallet();
   closeWalletModal();
 
-  // Redirect to home if not already there
+  // Redirect to home only if inside a restricted internal portal; stay in place on home or verify page
   const path = window.location.pathname;
   const isHome = path === "/" || path.endsWith("/index.html") || path.endsWith("index.html") || path === "";
-  if (!isHome) {
+  const isVerify = path.includes("verify.html");
+  if (!isHome && !isVerify) {
     window.location.href = "index.html";
   } else if (typeof onAccountChanged === "function") {
     onAccountChanged(null, "guest");
