@@ -1,4 +1,4 @@
-# ❄️ Sanjeevani – Decentralized Cold-Chain Tracking & AI Verification System
+# 🍀 Project Sanjeevani – Decentralized Cold-Chain Tracking & AI Verification System
 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.20-blue.svg)](https://soliditylang.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
@@ -9,6 +9,7 @@
 **Sanjeevani** is an end-to-end, decentralized pharmaceutical cold-chain verification platform designed to guarantee the physical integrity of temperature-sensitive medicines (vaccines, insulin, biologics, and mRNA treatments) from the manufacturer's sterile facility to the patient.
 
 It eliminates traditional centralized databases, mutable audit trails, and single points of failure by combining:
+
 1. **Ethereum Smart Contracts (`PharmaChain.sol`)** for on-chain Role-Based Access Control (RBAC), permanent safety invariants, and immutable milestone logging.
 2. **AI / Computer Vision (OCR)** to solve the blockchain "Oracle Problem" by extracting physical freezer gauge readings from photos before anchoring data to the blockchain.
 3. **Decentralized Storage (IPFS)** for storing cryptographic proof of thermometer photos.
@@ -20,10 +21,10 @@ It eliminates traditional centralized databases, mutable audit trails, and singl
 
 Temperature-sensitive pharmaceuticals require strict, unbroken storage conditions (typically $2^\circ\text{C}$ to $8^\circ\text{C}$ or deep-freeze at $-20^\circ\text{C}$ to $-70^\circ\text{C}$).
 
-* **The Spoilage Crisis:** The World Health Organization (WHO) estimates that up to **50% of vaccines are wasted globally each year** due to cold-chain failures and unmonitored logistics breakdowns.
-* **Silent Spoilage:** Thermally compromised pharmaceuticals look identical to potent ones. Patients and healthcare providers cannot tell with the naked eye whether a vaccine vial was exposed to ambient heat during shipment.
-* **The Oracle Problem (*Garbage-In, Garbage-Out*):** Blockchains guarantee that data cannot be altered once written, but they cannot verify if the data was true when entered. If a distributor manually enters `4°C` while the vehicle refrigerator is failing at `22°C`, the blockchain records a lie.
-* **Sanjeevani's Answer:** Field workers must upload a physical photograph of the thermometer gauge. Our AI OCR engine inspects the photo, cross-validates the needle/digital reading against the typed entry, and uploads the photo to IPFS. Only verified readings can be signed and anchored on-chain.
+- **The Spoilage Crisis:** The World Health Organization (WHO) estimates that up to **50% of vaccines are wasted globally each year** due to cold-chain failures and unmonitored logistics breakdowns.
+- **Silent Spoilage:** Thermally compromised pharmaceuticals look identical to potent ones. Patients and healthcare providers cannot tell with the naked eye whether a vaccine vial was exposed to ambient heat during shipment.
+- **The Oracle Problem (_Garbage-In, Garbage-Out_):** Blockchains guarantee that data cannot be altered once written, but they cannot verify if the data was true when entered. If a distributor manually enters `4°C` while the vehicle refrigerator is failing at `22°C`, the blockchain records a lie.
+- **Sanjeevani's Answer:** Field workers must upload a physical photograph of the thermometer gauge. Our AI OCR engine inspects the photo, cross-validates the needle/digital reading against the typed entry, and uploads the photo to IPFS. Only verified readings can be signed and anchored on-chain.
 
 ---
 
@@ -54,6 +55,7 @@ The platform enforces strict cryptographic role separation on-chain:
 ```
 
 ### Strict Role-Based Rules:
+
 1. **Administrator (`admin.html`)**:
    - Manages role authorizations (grant/revoke Manufacturer and Distributor rights).
    - Audits all medicine batches with a global ledger search, metrics counters, and detailed checkpoint logs.
@@ -114,6 +116,7 @@ Project_Sanjeevani/
 ## 🛠️ Prerequisites & Installation
 
 ### 1. System Requirements
+
 - **macOS / Linux / Windows**
 - **Python 3.10+** (tested up to Python 3.14)
 - **Node.js 18+** & `npm`
@@ -125,12 +128,15 @@ Project_Sanjeevani/
 - **MetaMask** or **Rabby Wallet** browser extension.
 
 ### 2. Install Ganache Globally
+
 ```bash
 npm install -g ganache
 ```
 
 ### 3. Setup Python Virtual Environment
+
 Open your terminal inside the `Project_Sanjeevani` directory:
+
 ```bash
 # Create virtual environment (if not already created)
 python3 -m venv .venv
@@ -150,21 +156,28 @@ pip install -r requirements.txt
 To run Sanjeevani locally, follow these 4 steps in order:
 
 ### Terminal 1: Start Ganache Local Blockchain
+
 Start a local EVM instance listening on port `8545`:
+
 ```bash
 ganache -h 0.0.0.0 -p 8545
 ```
+
 > **Keep this terminal running.** Ganache will print 10 test accounts with private keys and 1000 ETH each.
 
 ---
 
 ### Terminal 2: Deploy the Smart Contract
+
 Activate your virtual environment and run the deployment script:
+
 ```bash
 source .venv/bin/activate
 python scripts/deploy.py
 ```
+
 This script will:
+
 1. Compile `contracts/PharmaChain.sol`.
 2. Deploy the contract to Ganache via **Account 0 (Admin)**.
 3. Automatically configure initial on-chain authorizations:
@@ -175,17 +188,21 @@ This script will:
 ---
 
 ### Terminal 3: Start FastAPI Backend
+
 Launch the backend server using `uvicorn` with hot-reloading:
+
 ```bash
 source .venv/bin/activate
 uvicorn backend.app:app --reload
 ```
-* **API Documentation (Swagger UI):** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-* **API Health Check:** [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+
+- **API Documentation (Swagger UI):** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- **API Health Check:** [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
 
 ---
 
 ### Step 4: Run the Frontend with VS Code Live Server
+
 1. Open the `Project_Sanjeevani` folder in **VS Code**.
 2. Click the **"Go Live"** button in the bottom-right status bar of VS Code (or right-click `frontend/index.html` &rarr; **"Open with Live Server"**).
 3. Live Server will serve the workspace at port `5500`. Navigate to:
@@ -207,19 +224,20 @@ uvicorn backend.app:app --reload
    - **Currency Symbol:** `ETH`
 3. Import the private keys generated by Ganache in Terminal 1:
 
-| Role | Account in Ganache | Default Address | Function |
-| :--- | :--- | :--- | :--- |
-| **System Admin** | **Account 0** | `0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1` | Manage roles in Admin Portal; audits global ledger |
-| **Manufacturer** | **Account 1** | `0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0` | Mint medicine batches; generate QR stickers |
-| **Distributor 1** | **Account 2** | `0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b` | Log transit checkpoint #1 with AI verification |
-| **Distributor 2** | **Account 3** | `0xE11BA2b4D45Eaed5996Cd0823791E0C93114882d` | Log transit checkpoint #2 with AI verification |
-| **Normal Customer**| **Account 6+**| Any unlisted account | Read-only public verification; gasless |
+| Role                | Account in Ganache | Default Address                              | Function                                           |
+| :------------------ | :----------------- | :------------------------------------------- | :------------------------------------------------- |
+| **System Admin**    | **Account 0**      | `0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1` | Manage roles in Admin Portal; audits global ledger |
+| **Manufacturer**    | **Account 1**      | `0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0` | Mint medicine batches; generate QR stickers        |
+| **Distributor 1**   | **Account 2**      | `0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b` | Log transit checkpoint #1 with AI verification     |
+| **Distributor 2**   | **Account 3**      | `0xE11BA2b4D45Eaed5996Cd0823791E0C93114882d` | Log transit checkpoint #2 with AI verification     |
+| **Normal Customer** | **Account 6+**     | Any unlisted account                         | Read-only public verification; gasless             |
 
 ---
 
 ## 🎬 End-to-End Walkthrough Demonstration
 
 ### 1. Mint a Medicine Batch (Manufacturer Portal)
+
 1. Open [http://127.0.0.1:5500/frontend/manufacturer.html](http://127.0.0.1:5500/frontend/manufacturer.html).
 2. Connect your wallet using **Account 1** (Manufacturer).
 3. Enter batch parameters:
@@ -236,8 +254,9 @@ uvicorn backend.app:app --reload
 ---
 
 ### 2. Public Verification & Milestone 0 (`verify.html`)
+
 1. On the verification page, notice the compact status banner at the top:
-   - **`IN TRANSIT`** *(Amber)* &mdash; indicates the batch is safely created but has not yet met the required 2 distributor verifications.
+   - **`IN TRANSIT`** _(Amber)_ &mdash; indicates the batch is safely created but has not yet met the required 2 distributor verifications.
 2. The **Batch Details** section shows the medicine name, safe temperature range, and custody documentation status.
 3. The **Detailed Checkpoint Logs** opens with:
    - **`Origin: Manufacturer Facility` (Batch Minted)**
@@ -248,6 +267,7 @@ uvicorn backend.app:app --reload
 ---
 
 ### 3. Log Transit Checkpoint #1 (Distributor 1)
+
 1. In your wallet extension, switch to **Account 2** (Distributor 1).
    > **Note:** Switching accounts while on `verify.html` updates your identity in place and will **never** kick you back to the home page.
 2. The navbar reveals the **`+ Log Checkpoint`** button. Click it.
@@ -265,6 +285,7 @@ uvicorn backend.app:app --reload
 ---
 
 ### 4. Log Checkpoint #2 & Reach Complete Verification (Distributor 2)
+
 1. Switch your wallet to **Account 3** (Distributor 2).
 2. Click **`+ Log Checkpoint`**.
 3. Enter:
@@ -273,26 +294,28 @@ uvicorn backend.app:app --reload
    - **Thermometer Photo:** Upload a thermometer photo reading `5.2°C`.
 4. Submit and approve in wallet.
 5. Once confirmed, the status banner immediately flips to:
-   - **`FULLY VERIFIED & AUTHENTIC`** *(Green)*.
+   - **`FULLY VERIFIED & AUTHENTIC`** _(Green)_.
    - All 2 required distributor verifications are documented.
 
 ---
 
 ### 5. Audit in the Administrator Portal (`admin.html`)
+
 1. Switch to **Account 0** (Admin) and visit [http://127.0.0.1:5500/frontend/admin.html](http://127.0.0.1:5500/frontend/admin.html).
 2. In the **Role-Based Access Control** section, you can add or revoke manufacturers and distributors on-chain.
 3. In the **Global Ledger Audit** section:
-   - Review live metrics counters: *Total Discovered*, *Fully Verified*, *In-Transit / Incomplete*, and *Compromised*.
+   - Review live metrics counters: _Total Discovered_, _Fully Verified_, _In-Transit / Incomplete_, and _Compromised_.
    - Search batches by name, ID, or transit location.
    - Expand any batch to see the **Detailed Checkpoint Logs**, which are **100% identical** in layout, badges, and milestones to the customer verification view.
 
 ---
 
 ### 6. Simulate a Temperature Breach
+
 1. Switch to an authorized distributor account on `verify.html`.
 2. Submit a checkpoint with a temperature reading of `25.0°C` (outside the `2°C` to `8°C` bounds).
 3. The smart contract trips its safety latch:
-   - The status banner flips to **`NOT AUTHENTIC — BATCH COMPROMISED`** *(Red)*.
+   - The status banner flips to **`NOT AUTHENTIC — BATCH COMPROMISED`** _(Red)_.
    - The compromised milestone highlights in red with a **`(TEMPERATURE BREACH!)`** alert.
    - The state is permanent and irreversible on the blockchain, protecting patients from consuming spoiled medicine.
 
@@ -302,14 +325,14 @@ uvicorn backend.app:app --reload
 
 `PharmaChain.sol` implements the following functions:
 
-| Function | Modifiers | Description |
-| :--- | :--- | :--- |
-| `mintBatch(...)` | `external onlyManufacturer` | Registers a new batch with medicine name, expiry date, temperature boundaries, and required checkpoint count. |
-| `updateTransit(...)` | `external onlyDistributor` | Appends a transit record with location, temperature, and IPFS CID. Automatically trips `isCompromised` if temperature is breached or product is expired. |
-| `setManufacturer(...)` | `external onlyAdmin` | Whitelists or revokes a manufacturer address on-chain. |
-| `setDistributor(...)` | `external onlyAdmin` | Whitelists or revokes a distributor address on-chain. |
-| `getBatchDetails(...)` | `external view returns (...)` | Returns batch metadata, temperature boundaries, checkpoint counts, and compromise status. |
-| `getBatchHistory(...)` | `external view returns (...)` | Returns the complete chronological array of transit records and IPFS image CIDs. |
+| Function               | Modifiers                     | Description                                                                                                                                              |
+| :--------------------- | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mintBatch(...)`       | `external onlyManufacturer`   | Registers a new batch with medicine name, expiry date, temperature boundaries, and required checkpoint count.                                            |
+| `updateTransit(...)`   | `external onlyDistributor`    | Appends a transit record with location, temperature, and IPFS CID. Automatically trips `isCompromised` if temperature is breached or product is expired. |
+| `setManufacturer(...)` | `external onlyAdmin`          | Whitelists or revokes a manufacturer address on-chain.                                                                                                   |
+| `setDistributor(...)`  | `external onlyAdmin`          | Whitelists or revokes a distributor address on-chain.                                                                                                    |
+| `getBatchDetails(...)` | `external view returns (...)` | Returns batch metadata, temperature boundaries, checkpoint counts, and compromise status.                                                                |
+| `getBatchHistory(...)` | `external view returns (...)` | Returns the complete chronological array of transit records and IPFS image CIDs.                                                                         |
 
 ---
 
@@ -328,4 +351,5 @@ uvicorn backend.app:app --reload
 ---
 
 ## 📄 License
+
 This project is open-source and available under the [MIT License](LICENSE).

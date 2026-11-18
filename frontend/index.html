@@ -1,163 +1,226 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sanjeevani | Decentralized Cold-Chain Tracking</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
-</head>
-<body>
-
-  <!-- Navbar -->
-  <header class="navbar">
-    <a href="index.html" class="nav-brand">
-      <span class="brand-icon">❄️</span>
-      <div>
-        <h1 class="brand-title">Sanjeevani</h1>
-        <p class="brand-subtitle">Decentralized Cold-Chain & AI Verification</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sanjeevani | Decentralized Cold-Chain Tracking</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+  </head>
+  <body>
+    <!-- Navbar -->
+    <header class="navbar">
+      <a href="index.html" class="nav-brand">
+        <span class="brand-icon">🍀</span>
+        <div>
+          <h1 class="brand-title">Sanjeevani</h1>
+          <p class="brand-subtitle">
+            Decentralized Cold-Chain & AI Verification
+          </p>
+        </div>
+      </a>
+      <div class="nav-actions">
+        <div
+          id="walletBadge"
+          class="wallet-badge hidden"
+          title="Wallet info"
+          onclick="openWalletModal()"
+          role="button"
+          tabindex="0"
+        >
+          <span class="role-pill" id="userRolePill">Detecting...</span>
+          <span class="address-pill" id="userAddressPill">0x...</span>
+        </div>
+        <button
+          id="logoutWalletBtn"
+          class="btn btn-outline hidden"
+          onclick="disconnectWallet()"
+          style="
+            font-size: 0.8rem;
+            padding: 5px 12px;
+            color: var(--danger);
+            border-color: #fecdd3;
+          "
+        >
+          Log out
+        </button>
+        <button
+          id="connectWalletBtn"
+          class="btn btn-primary"
+          onclick="connectWallet()"
+        >
+          Connect Wallet
+        </button>
       </div>
-    </a>
-    <div class="nav-actions">
-      <div id="walletBadge" class="wallet-badge hidden" title="Wallet info" onclick="openWalletModal()" role="button" tabindex="0">
-        <span class="role-pill" id="userRolePill">Detecting...</span>
-        <span class="address-pill" id="userAddressPill">0x...</span>
-      </div>
-      <button id="logoutWalletBtn" class="btn btn-outline hidden" onclick="disconnectWallet()" style="font-size:0.8rem; padding:5px 12px; color:var(--danger); border-color:#fecdd3;">Log out</button>
-      <button id="connectWalletBtn" class="btn btn-primary" onclick="connectWallet()">Connect Wallet</button>
-    </div>
-  </header>
+    </header>
 
-  <main class="container">
+    <main class="container">
+      <div id="statusAlert" class="alert hidden" role="alert"></div>
 
-    <div id="statusAlert" class="alert hidden" role="alert"></div>
-
-    <!-- Header -->
-    <div style="text-align:center; margin-bottom:32px;">
-      <h2 style="font-size:1.6rem; margin-bottom:6px;">Enterprise & Staff Portals</h2>
-      <p id="homeSubtitle" style="color:var(--text-muted); font-size:0.95rem;">
-        Connect your Web3 wallet to unlock your authorized portal.
-      </p>
-    </div>
-
-    <!-- Portal Cards Grid -->
-    <div class="portal-grid">
-
-      <!-- Manufacturer Card -->
-      <div id="portalMfg" class="portal-box portal-disabled" onclick="handleMfgClick()" role="button" tabindex="0">
-        <div class="portal-title">Manufacturer Portal</div>
-        <div class="portal-text">Register new pharmaceutical batches on-chain, configure safe temperature rules, and generate physical QR stickers.</div>
-        <span class="portal-action" id="portalMfgAction">Connect wallet for access</span>
+      <!-- Header -->
+      <div style="text-align: center; margin-bottom: 32px">
+        <h2 style="font-size: 1.6rem; margin-bottom: 6px">
+          Enterprise & Staff Portals
+        </h2>
+        <p
+          id="homeSubtitle"
+          style="color: var(--text-muted); font-size: 0.95rem"
+        >
+          Connect your Web3 wallet to unlock your authorized portal.
+        </p>
       </div>
 
-      <!-- Admin Card -->
-      <div id="portalAdmin" class="portal-box portal-disabled" onclick="handleAdminClick()" role="button" tabindex="0">
-        <div class="portal-title">Administrator Portal</div>
-        <div class="portal-text">Manage supply-chain permissions. Whitelist or revoke wallet addresses for Manufacturers and Logistics Distributors.</div>
-        <span class="portal-action" id="portalAdminAction">Connect wallet for access</span>
+      <!-- Portal Cards Grid -->
+      <div class="portal-grid">
+        <!-- Manufacturer Card -->
+        <div
+          id="portalMfg"
+          class="portal-box portal-disabled"
+          onclick="handleMfgClick()"
+          role="button"
+          tabindex="0"
+        >
+          <div class="portal-title">Manufacturer Portal</div>
+          <div class="portal-text">
+            Register new pharmaceutical batches on-chain, configure safe
+            temperature rules, and generate physical QR stickers.
+          </div>
+          <span class="portal-action" id="portalMfgAction"
+            >Connect wallet for access</span
+          >
+        </div>
+
+        <!-- Admin Card -->
+        <div
+          id="portalAdmin"
+          class="portal-box portal-disabled"
+          onclick="handleAdminClick()"
+          role="button"
+          tabindex="0"
+        >
+          <div class="portal-title">Administrator Portal</div>
+          <div class="portal-text">
+            Manage supply-chain permissions. Whitelist or revoke wallet
+            addresses for Manufacturers and Logistics Distributors.
+          </div>
+          <span class="portal-action" id="portalAdminAction"
+            >Connect wallet for access</span
+          >
+        </div>
       </div>
+    </main>
 
-    </div>
+    <script src="common.js"></script>
+    <script>
+      async function handleMfgClick() {
+        if (!sharedAddress) {
+          showAlert(
+            "Connecting your Web3 wallet (MetaMask / Rabby)...",
+            "info",
+          );
+          const res = await connectWallet();
+          renderHomeState();
+          if (res && sharedRole === "manufacturer") {
+            window.location.href = "manufacturer.html";
+          }
+          return;
+        }
 
-  </main>
-
-  <script src="common.js"></script>
-  <script>
-    async function handleMfgClick() {
-      if (!sharedAddress) {
-        showAlert("Connecting your Web3 wallet (MetaMask / Rabby)...", "info");
-        const res = await connectWallet();
-        renderHomeState();
-        if (res && sharedRole === "manufacturer") {
+        if (sharedRole === "manufacturer") {
           window.location.href = "manufacturer.html";
+        } else if (sharedRole === "admin") {
+          showAlert(
+            "Access restricted: Administrator accounts cannot access the Manufacturer Portal. Please switch to an authorized Manufacturer wallet.",
+            "danger",
+          );
+        } else {
+          showAlert(
+            `Access restricted: Manufacturer Portal requires Manufacturer authorization. Connected account (${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}) has role: ${sharedRole.toUpperCase()}. Please switch to an authorized Manufacturer wallet.`,
+            "danger",
+          );
         }
-        return;
       }
 
-      if (sharedRole === "manufacturer") {
-        window.location.href = "manufacturer.html";
-      } else if (sharedRole === "admin") {
-        showAlert("Access restricted: Administrator accounts cannot access the Manufacturer Portal. Please switch to an authorized Manufacturer wallet.", "danger");
-      } else {
-        showAlert(`Access restricted: Manufacturer Portal requires Manufacturer authorization. Connected account (${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}) has role: ${sharedRole.toUpperCase()}. Please switch to an authorized Manufacturer wallet.`, "danger");
-      }
-    }
+      async function handleAdminClick() {
+        if (!sharedAddress) {
+          showAlert(
+            "Connecting your Web3 wallet (MetaMask / Rabby)...",
+            "info",
+          );
+          const res = await connectWallet();
+          renderHomeState();
+          if (res && sharedRole === "admin") {
+            window.location.href = "admin.html";
+          }
+          return;
+        }
 
-    async function handleAdminClick() {
-      if (!sharedAddress) {
-        showAlert("Connecting your Web3 wallet (MetaMask / Rabby)...", "info");
-        const res = await connectWallet();
-        renderHomeState();
-        if (res && sharedRole === "admin") {
+        if (sharedRole === "admin") {
           window.location.href = "admin.html";
+        } else {
+          showAlert(
+            `Access restricted: Administrator Portal requires Administrator authorization. Connected account (${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}) has role: ${sharedRole.toUpperCase()}. Please switch to Account 0 in MetaMask or Rabby.`,
+            "danger",
+          );
         }
-        return;
       }
 
-      if (sharedRole === "admin") {
-        window.location.href = "admin.html";
-      } else {
-        showAlert(`Access restricted: Administrator Portal requires Administrator authorization. Connected account (${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}) has role: ${sharedRole.toUpperCase()}. Please switch to Account 0 in MetaMask or Rabby.`, "danger");
-      }
-    }
+      document.addEventListener("DOMContentLoaded", async () => {
+        renderHomeState();
+        await loadConfig();
+        await autoDetectWallet();
+        renderHomeState();
+      });
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      renderHomeState();
-      await loadConfig();
-      await autoDetectWallet();
-      renderHomeState();
-    });
-
-    function onAccountChanged(addr, role) {
-      renderHomeState();
-    }
-
-    function renderHomeState() {
-      const mfgCard = document.getElementById("portalMfg");
-      const adminCard = document.getElementById("portalAdmin");
-      const mfgAction = document.getElementById("portalMfgAction");
-      const adminAction = document.getElementById("portalAdminAction");
-      const subtitle = document.getElementById("homeSubtitle");
-
-      // Reset to disabled
-      mfgCard.classList.add("portal-disabled");
-      adminCard.classList.add("portal-disabled");
-      mfgCard.classList.remove("portal-active");
-      adminCard.classList.remove("portal-active");
-
-      if (!sharedAddress) {
-        // No wallet connected — both locked
-        mfgAction.innerHTML = "Connect wallet for access";
-        adminAction.innerHTML = "Connect wallet for access";
-        subtitle.textContent = "Connect your Web3 wallet to unlock your authorized portal.";
-        return;
+      function onAccountChanged(addr, role) {
+        renderHomeState();
       }
 
-      const addrStr = `${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}`;
+      function renderHomeState() {
+        const mfgCard = document.getElementById("portalMfg");
+        const adminCard = document.getElementById("portalAdmin");
+        const mfgAction = document.getElementById("portalMfgAction");
+        const adminAction = document.getElementById("portalAdminAction");
+        const subtitle = document.getElementById("homeSubtitle");
 
-      if (sharedRole === "manufacturer") {
-        // Manufacturer: only manufacturer option is available, administrator option is disabled
-        mfgCard.classList.remove("portal-disabled");
-        mfgCard.classList.add("portal-active");
-        mfgAction.innerHTML = `<span style="color:var(--success); font-weight:600;">Open Manufacturer Portal →</span>`;
-        adminAction.innerHTML = `<span style="color:var(--text-muted);">Administrator access only</span>`;
-        subtitle.innerHTML = `Connected as <strong>Manufacturer</strong> (${addrStr}). Access unlocked for Manufacturer Portal.`;
+        // Reset to disabled
+        mfgCard.classList.add("portal-disabled");
+        adminCard.classList.add("portal-disabled");
+        mfgCard.classList.remove("portal-active");
+        adminCard.classList.remove("portal-active");
 
-      } else if (sharedRole === "admin") {
-        // Admin: only administrator option is available, manufacturer option is disabled
-        adminCard.classList.remove("portal-disabled");
-        adminCard.classList.add("portal-active");
-        adminAction.innerHTML = `<span style="color:var(--success); font-weight:600;">Open Administrator Portal →</span>`;
-        mfgAction.innerHTML = `<span style="color:var(--text-muted);">Manufacturer access only</span>`;
-        subtitle.innerHTML = `Connected as <strong>Administrator</strong> (${addrStr}). Access unlocked for Administrator Portal.`;
+        if (!sharedAddress) {
+          // No wallet connected — both locked
+          mfgAction.innerHTML = "Connect wallet for access";
+          adminAction.innerHTML = "Connect wallet for access";
+          subtitle.textContent =
+            "Connect your Web3 wallet to unlock your authorized portal.";
+          return;
+        }
 
-      } else {
-        // Unauthorized account connected: disable both options and display message "Connect account for access."
-        mfgAction.innerHTML = `<span style="color:var(--danger); font-weight:600;">Connect account for access</span>`;
-        adminAction.innerHTML = `<span style="color:var(--danger); font-weight:600;">Connect account for access</span>`;
-        subtitle.innerHTML = `<span style="color:var(--danger); font-weight:600;">Connect account for access.</span> Wallet (${addrStr}) is not authorized.`;
+        const addrStr = `${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}`;
+
+        if (sharedRole === "manufacturer") {
+          // Manufacturer: only manufacturer option is available, administrator option is disabled
+          mfgCard.classList.remove("portal-disabled");
+          mfgCard.classList.add("portal-active");
+          mfgAction.innerHTML = `<span style="color:var(--success); font-weight:600;">Open Manufacturer Portal →</span>`;
+          adminAction.innerHTML = `<span style="color:var(--text-muted);">Administrator access only</span>`;
+          subtitle.innerHTML = `Connected as <strong>Manufacturer</strong> (${addrStr}). Access unlocked for Manufacturer Portal.`;
+        } else if (sharedRole === "admin") {
+          // Admin: only administrator option is available, manufacturer option is disabled
+          adminCard.classList.remove("portal-disabled");
+          adminCard.classList.add("portal-active");
+          adminAction.innerHTML = `<span style="color:var(--success); font-weight:600;">Open Administrator Portal →</span>`;
+          mfgAction.innerHTML = `<span style="color:var(--text-muted);">Manufacturer access only</span>`;
+          subtitle.innerHTML = `Connected as <strong>Administrator</strong> (${addrStr}). Access unlocked for Administrator Portal.`;
+        } else {
+          // Unauthorized account connected: disable both options and display message "Connect account for access."
+          mfgAction.innerHTML = `<span style="color:var(--danger); font-weight:600;">Connect account for access</span>`;
+          adminAction.innerHTML = `<span style="color:var(--danger); font-weight:600;">Connect account for access</span>`;
+          subtitle.innerHTML = `<span style="color:var(--danger); font-weight:600;">Connect account for access.</span> Wallet (${addrStr}) is not authorized.`;
+        }
       }
-    }
-  </script>
-</body>
+    </script>
+  </body>
 </html>

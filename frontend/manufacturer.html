@@ -1,297 +1,454 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manufacturer Portal | Sanjeevani</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-</head>
-<body>
-
-  <!-- Navbar -->
-  <header class="navbar">
-    <a href="index.html" class="nav-brand">
-      <span class="brand-icon">❄️</span>
-      <div>
-        <h1 class="brand-title">Sanjeevani</h1>
-        <p class="brand-subtitle">Manufacturer Portal</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manufacturer Portal | Sanjeevani</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  </head>
+  <body>
+    <!-- Navbar -->
+    <header class="navbar">
+      <a href="index.html" class="nav-brand">
+        <span class="brand-icon">🍀</span>
+        <div>
+          <h1 class="brand-title">Sanjeevani</h1>
+          <p class="brand-subtitle">Manufacturer Portal</p>
+        </div>
+      </a>
+      <div class="nav-actions">
+        <a href="index.html" class="nav-link">← Home</a>
+        <div
+          id="walletBadge"
+          class="wallet-badge hidden"
+          title="Wallet info"
+          role="button"
+          tabindex="0"
+        >
+          <span class="role-pill" id="userRolePill">Detecting...</span>
+          <span class="address-pill" id="userAddressPill">0x...</span>
+        </div>
+        <button
+          id="logoutWalletBtn"
+          class="btn btn-outline hidden"
+          style="
+            font-size: 0.8rem;
+            padding: 5px 12px;
+            color: var(--danger);
+            border-color: #fecdd3;
+          "
+        >
+          Log out
+        </button>
+        <button
+          id="connectWalletBtn"
+          class="btn btn-primary"
+          style="font-size: 0.85rem; padding: 6px 14px"
+        >
+          Connect Wallet
+        </button>
       </div>
-    </a>
-    <div class="nav-actions">
-      <a href="index.html" class="nav-link">← Home</a>
-      <div id="walletBadge" class="wallet-badge hidden" title="Wallet info" role="button" tabindex="0">
-        <span class="role-pill" id="userRolePill">Detecting...</span>
-        <span class="address-pill" id="userAddressPill">0x...</span>
-      </div>
-      <button id="logoutWalletBtn" class="btn btn-outline hidden" style="font-size:0.8rem; padding:5px 12px; color:var(--danger); border-color:#fecdd3;">Log out</button>
-      <button id="connectWalletBtn" class="btn btn-primary" style="font-size:0.85rem; padding:6px 14px;">Connect Wallet</button>
-    </div>
-  </header>
+    </header>
 
-  <main class="container">
+    <main class="container">
+      <div id="statusAlert" class="alert hidden" role="alert"></div>
 
-    <div id="statusAlert" class="alert hidden" role="alert"></div>
-
-    <!-- NOT CONNECTED STATE -->
-    <div id="unconnectedCard" class="card" style="text-align:center; padding:48px 24px;">
-      <h2 style="font-size:1.5rem; margin-bottom:8px;">Connect Your Wallet</h2>
-      <p style="color:var(--text-muted); max-width:480px; margin:0 auto 24px;">
-        Connect your Web3 wallet (MetaMask or Rabby). The portal will automatically display your permissions based on your connected wallet address.
-      </p>
-      <button id="btnPromptConnect" class="btn btn-primary" style="font-size:1rem; padding:12px 28px;">Connect Wallet</button>
-    </div>
-
-    <!-- UNAUTHORIZED STATE -->
-    <div id="unauthorizedCard" class="card hidden" style="text-align:center; padding:40px 24px; border:2px solid #fecdd3; background:#fff1f2;">
-      <h2 style="color:var(--danger); margin-bottom:8px;">Access Denied</h2>
-      <p id="unauthorizedText" style="color:#9f1239; margin-bottom:20px; font-weight:500;">
-        Your connected wallet is not registered as an authorized Manufacturer.
-      </p>
-      <p style="color:#9f1239; font-size:0.85rem;">Switch account from the MetaMask or Rabby extension in your browser toolbar, or go back to the home page.</p>
-      <a href="index.html" class="btn btn-outline" style="margin-top:16px;">← Back to Home</a>
-    </div>
-
-    <!-- MANUFACTURER BATCH REGISTRATION -->
-    <div id="manufacturerPanel" class="card hidden">
-      <div class="card-header">
-        <h2>Register Medicine Batch</h2>
-        <p class="card-desc">Mint an immutable pharmaceutical batch on the blockchain, set safe cold-chain rules & minimum distributor checkpoints, and generate physical QR stickers.</p>
-      </div>
-
-      <form id="mintBatchForm" class="form-grid">
-        <div class="form-group">
-          <label for="mfgBatchId">Batch Identifier</label>
-          <input type="text" id="mfgBatchId" placeholder="e.g. VAX-2026-001" required />
-        </div>
-
-        <div class="form-group">
-          <label for="mfgMedName">Medicine Name</label>
-          <input type="text" id="mfgMedName" placeholder="e.g. Covaxin Shield" required />
-        </div>
-
-        <div class="form-group">
-          <label for="mfgMinTemp">Min Safe Temp (°C)</label>
-          <input type="number" id="mfgMinTemp" value="2" required />
-        </div>
-
-        <div class="form-group">
-          <label for="mfgMaxTemp">Max Safe Temp (°C)</label>
-          <input type="number" id="mfgMaxTemp" value="8" required />
-        </div>
-
-        <div class="form-group">
-          <label for="mfgMinCheckpoints">Minimum Required Distributors</label>
-          <input type="number" id="mfgMinCheckpoints" value="2" min="1" required />
-          <small style="color:var(--text-muted); font-size:0.75rem;">Batch is flagged incomplete if verified at fewer checkpoints.</small>
-        </div>
-
-        <div class="form-group">
-          <label for="mfgExpiry">Expiry Date</label>
-          <input type="date" id="mfgExpiry" required />
-        </div>
-
-        <div class="form-actions full-width">
-          <button type="submit" id="mintSubmitBtn" class="btn btn-primary">Mint Batch on Blockchain</button>
-        </div>
-      </form>
-
-      <!-- QR Code Sticker Generator Area -->
-      <div id="qrResult" class="qr-container hidden">
-        <h3 style="color:var(--success); font-size:1.2rem; margin-bottom:4px;">Batch Minted Successfully!</h3>
-        <p style="font-size:0.88rem; color:var(--text-muted);">
-          Print and affix this QR sticker onto the physical vaccine/medicine container:
+      <!-- NOT CONNECTED STATE -->
+      <div
+        id="unconnectedCard"
+        class="card"
+        style="text-align: center; padding: 48px 24px"
+      >
+        <h2 style="font-size: 1.5rem; margin-bottom: 8px">
+          Connect Your Wallet
+        </h2>
+        <p
+          style="
+            color: var(--text-muted);
+            max-width: 480px;
+            margin: 0 auto 24px;
+          "
+        >
+          Connect your Web3 wallet (MetaMask or Rabby). The portal will
+          automatically display your permissions based on your connected wallet
+          address.
         </p>
-        <div id="qrcodeBox" class="qrcode-wrapper"></div>
-        <p id="qrLabelText" style="font-weight:700; font-size:0.95rem; margin-bottom:12px;"></p>
-        <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
-          <button type="button" id="btnDownloadQr" class="btn btn-primary" style="font-size:0.85rem; padding:8px 16px;">
-            Download QR Sticker (PNG)
-          </button>
-          <a id="previewVerifyLink" href="#" target="_blank" class="btn btn-accent" style="font-size:0.85rem; padding:8px 16px;">Test QR Link (Verify) →</a>
+        <button
+          id="btnPromptConnect"
+          class="btn btn-primary"
+          style="font-size: 1rem; padding: 12px 28px"
+        >
+          Connect Wallet
+        </button>
+      </div>
+
+      <!-- UNAUTHORIZED STATE -->
+      <div
+        id="unauthorizedCard"
+        class="card hidden"
+        style="
+          text-align: center;
+          padding: 40px 24px;
+          border: 2px solid #fecdd3;
+          background: #fff1f2;
+        "
+      >
+        <h2 style="color: var(--danger); margin-bottom: 8px">Access Denied</h2>
+        <p
+          id="unauthorizedText"
+          style="color: #9f1239; margin-bottom: 20px; font-weight: 500"
+        >
+          Your connected wallet is not registered as an authorized Manufacturer.
+        </p>
+        <p style="color: #9f1239; font-size: 0.85rem">
+          Switch account from the MetaMask or Rabby extension in your browser
+          toolbar, or go back to the home page.
+        </p>
+        <a href="index.html" class="btn btn-outline" style="margin-top: 16px"
+          >← Back to Home</a
+        >
+      </div>
+
+      <!-- MANUFACTURER BATCH REGISTRATION -->
+      <div id="manufacturerPanel" class="card hidden">
+        <div class="card-header">
+          <h2>Register Medicine Batch</h2>
+          <p class="card-desc">
+            Mint an immutable pharmaceutical batch on the blockchain, set safe
+            cold-chain rules & minimum distributor checkpoints, and generate
+            physical QR stickers.
+          </p>
+        </div>
+
+        <form id="mintBatchForm" class="form-grid">
+          <div class="form-group">
+            <label for="mfgBatchId">Batch Identifier</label>
+            <input
+              type="text"
+              id="mfgBatchId"
+              placeholder="e.g. VAX-2026-001"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="mfgMedName">Medicine Name</label>
+            <input
+              type="text"
+              id="mfgMedName"
+              placeholder="e.g. Covaxin Shield"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="mfgMinTemp">Min Safe Temp (°C)</label>
+            <input type="number" id="mfgMinTemp" value="2" required />
+          </div>
+
+          <div class="form-group">
+            <label for="mfgMaxTemp">Max Safe Temp (°C)</label>
+            <input type="number" id="mfgMaxTemp" value="8" required />
+          </div>
+
+          <div class="form-group">
+            <label for="mfgMinCheckpoints">Minimum Required Distributors</label>
+            <input
+              type="number"
+              id="mfgMinCheckpoints"
+              value="2"
+              min="1"
+              required
+            />
+            <small style="color: var(--text-muted); font-size: 0.75rem"
+              >Batch is flagged incomplete if verified at fewer
+              checkpoints.</small
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="mfgExpiry">Expiry Date</label>
+            <input type="date" id="mfgExpiry" required />
+          </div>
+
+          <div class="form-actions full-width">
+            <button type="submit" id="mintSubmitBtn" class="btn btn-primary">
+              Mint Batch on Blockchain
+            </button>
+          </div>
+        </form>
+
+        <!-- QR Code Sticker Generator Area -->
+        <div id="qrResult" class="qr-container hidden">
+          <h3
+            style="color: var(--success); font-size: 1.2rem; margin-bottom: 4px"
+          >
+            Batch Minted Successfully!
+          </h3>
+          <p style="font-size: 0.88rem; color: var(--text-muted)">
+            Print and affix this QR sticker onto the physical vaccine/medicine
+            container:
+          </p>
+          <div id="qrcodeBox" class="qrcode-wrapper"></div>
+          <p
+            id="qrLabelText"
+            style="font-weight: 700; font-size: 0.95rem; margin-bottom: 12px"
+          ></p>
+          <div
+            style="
+              display: flex;
+              justify-content: center;
+              gap: 12px;
+              flex-wrap: wrap;
+            "
+          >
+            <button
+              type="button"
+              id="btnDownloadQr"
+              class="btn btn-primary"
+              style="font-size: 0.85rem; padding: 8px 16px"
+            >
+              Download QR Sticker (PNG)
+            </button>
+            <a
+              id="previewVerifyLink"
+              href="#"
+              target="_blank"
+              class="btn btn-accent"
+              style="font-size: 0.85rem; padding: 8px 16px"
+              >Test QR Link (Verify) →</a
+            >
+          </div>
         </div>
       </div>
-    </div>
+    </main>
 
-  </main>
+    <script src="common.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", async () => {
+        await loadConfig();
+        await autoDetectWallet();
+        renderPortalState();
 
-  <script src="common.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", async () => {
-      await loadConfig();
-      await autoDetectWallet();
-      renderPortalState();
+        document
+          .getElementById("connectWalletBtn")
+          .addEventListener("click", handleConnect);
+        document
+          .getElementById("walletBadge")
+          .addEventListener("click", openWalletModal);
+        document
+          .getElementById("btnPromptConnect")
+          .addEventListener("click", handleConnect);
+        document
+          .getElementById("mintBatchForm")
+          .addEventListener("submit", handleMintBatch);
+        document
+          .getElementById("btnDownloadQr")
+          .addEventListener("click", handleDownloadQr);
+      });
 
-      document.getElementById("connectWalletBtn").addEventListener("click", handleConnect);
-      document.getElementById("walletBadge").addEventListener("click", openWalletModal);
-      document.getElementById("btnPromptConnect").addEventListener("click", handleConnect);
-      document.getElementById("mintBatchForm").addEventListener("submit", handleMintBatch);
-      document.getElementById("btnDownloadQr").addEventListener("click", handleDownloadQr);
-    });
-
-    function handleDownloadQr() {
-      const qrBox = document.getElementById("qrcodeBox");
-      const canvas = qrBox.querySelector("canvas");
-      const img = qrBox.querySelector("img");
-      const sourceImage = canvas || img;
-
-      if (!sourceImage) {
-        alert("QR Code is not ready to download.");
-        return;
-      }
-
-      const batchId = document.getElementById("mfgBatchId").value.trim() || "Batch";
-      const medName = document.getElementById("mfgMedName").value.trim() || "Medicine";
-
-      const stickerCanvas = document.createElement("canvas");
-      const width = 280;
-      const height = 340;
-      stickerCanvas.width = width;
-      stickerCanvas.height = height;
-      const ctx = stickerCanvas.getContext("2d");
-
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-      ctx.strokeStyle = "#cbd5e1";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(3, 3, width - 6, height - 6);
-
-      ctx.fillStyle = "#0284c7";
-      ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("SANJEEVANI COLD-CHAIN", width / 2, 28);
-
-      ctx.drawImage(sourceImage, 40, 42, 200, 200);
-
-      ctx.fillStyle = "#0f172a";
-      ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(batchId, width / 2, 268);
-
-      ctx.fillStyle = "#64748b";
-      ctx.font = "12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      const cleanMed = medName.length > 28 ? medName.substring(0, 25) + "..." : medName;
-      ctx.fillText(cleanMed, width / 2, 290);
-
-      ctx.fillStyle = "#059669";
-      ctx.font = "italic 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText("Scan to Verify Authenticity", width / 2, 314);
-
-      const downloadUrl = stickerCanvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = `${batchId}_QR_Sticker.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
-    async function handleConnect() {
-      await connectWallet();
-      renderPortalState();
-    }
-
-    function onAccountChanged(addr, role) {
-      // account switch redirects to home via common.js
-    }
-
-    function renderPortalState() {
-      const unconnected = document.getElementById("unconnectedCard");
-      const unauthorized = document.getElementById("unauthorizedCard");
-      const unauthText = document.getElementById("unauthorizedText");
-      const mfgPanel = document.getElementById("manufacturerPanel");
-
-      unconnected.classList.add("hidden");
-      unauthorized.classList.add("hidden");
-      mfgPanel.classList.add("hidden");
-
-      if (!sharedAddress) {
-        unconnected.classList.remove("hidden");
-        return;
-      }
-
-      if (sharedRole === "manufacturer") {
-        mfgPanel.classList.remove("hidden");
-        return;
-      }
-
-      unauthorized.classList.remove("hidden");
-      const addrStr = `${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}`;
-      if (sharedRole === "admin") {
-        unauthText.innerHTML = `Connected as <strong>Administrator</strong> (${addrStr}). Administrator accounts are restricted to the Administrator Portal and cannot access the Manufacturer Portal.<br><a href="admin.html" class="btn btn-primary" style="margin-top:14px; display:inline-block;">Open Administrator Portal →</a>`;
-      } else if (sharedRole === "distributor") {
-        unauthText.textContent = `Connected as Distributor (${addrStr}). This portal is for authorized Manufacturers only.`;
-      } else {
-        unauthText.textContent = `Wallet (${addrStr}) is not registered as an authorized Manufacturer.`;
-      }
-    }
-
-    async function handleMintBatch(e) {
-      e.preventDefault();
-      if (!sharedContract || !sharedSigner) {
-        alert("Please connect your authorized Manufacturer wallet.");
-        return;
-      }
-
-      const batchId = document.getElementById("mfgBatchId").value.trim();
-      const medName = document.getElementById("mfgMedName").value.trim();
-      const minTemp = parseInt(document.getElementById("mfgMinTemp").value);
-      const maxTemp = parseInt(document.getElementById("mfgMaxTemp").value);
-      const minCheckpoints = parseInt(document.getElementById("mfgMinCheckpoints").value);
-      const expiryVal = document.getElementById("mfgExpiry").value;
-
-      if (!expiryVal) {
-        alert("Please select an expiry date");
-        return;
-      }
-
-      const expiryTimestamp = Math.floor(new Date(expiryVal).getTime() / 1000);
-
-      try {
-        showAlert("Please approve transaction in your wallet...", "info");
-        const tx = await sharedContract.mintBatch(batchId, medName, expiryTimestamp, minTemp, maxTemp, minCheckpoints);
-        showAlert("Transaction submitted to Ganache! Confirming...", "info");
-        await tx.wait();
-
-        showAlert(`Batch "${batchId}" successfully minted to blockchain!`, "success");
-
-        // Register batch with backend registry and localStorage
-        try {
-          const fd = new FormData();
-          fd.append("batch_id", batchId);
-          fetch(`${BACKEND_URL}/api/batch/register`, { method: "POST", body: fd }).catch(() => {});
-
-          const stored = JSON.parse(localStorage.getItem("sanjeevani_batches") || "[]");
-          if (!stored.includes(batchId)) {
-            stored.push(batchId);
-            localStorage.setItem("sanjeevani_batches", JSON.stringify(stored));
-          }
-        } catch (e) {}
-
+      function handleDownloadQr() {
         const qrBox = document.getElementById("qrcodeBox");
-        qrBox.innerHTML = "";
+        const canvas = qrBox.querySelector("canvas");
+        const img = qrBox.querySelector("img");
+        const sourceImage = canvas || img;
 
-        const verifyUrl = getVerifyUrl(batchId);
-        new QRCode(qrBox, { text: verifyUrl, width: 200, height: 200 });
+        if (!sourceImage) {
+          alert("QR Code is not ready to download.");
+          return;
+        }
 
-        document.getElementById("qrLabelText").textContent = `Scan URL: ${verifyUrl}`;
-        document.getElementById("previewVerifyLink").href = verifyUrl;
-        document.getElementById("qrResult").classList.remove("hidden");
-        document.getElementById("qrResult").scrollIntoView({ behavior: "smooth" });
-      } catch (err) {
-        console.error("Mint error:", err);
-        showAlert("Minting failed: " + (err.reason || err.message), "danger");
+        const batchId =
+          document.getElementById("mfgBatchId").value.trim() || "Batch";
+        const medName =
+          document.getElementById("mfgMedName").value.trim() || "Medicine";
+
+        const stickerCanvas = document.createElement("canvas");
+        const width = 280;
+        const height = 340;
+        stickerCanvas.width = width;
+        stickerCanvas.height = height;
+        const ctx = stickerCanvas.getContext("2d");
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = "#cbd5e1";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(3, 3, width - 6, height - 6);
+
+        ctx.fillStyle = "#0284c7";
+        ctx.font =
+          "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("SANJEEVANI COLD-CHAIN", width / 2, 28);
+
+        ctx.drawImage(sourceImage, 40, 42, 200, 200);
+
+        ctx.fillStyle = "#0f172a";
+        ctx.font =
+          "bold 15px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText(batchId, width / 2, 268);
+
+        ctx.fillStyle = "#64748b";
+        ctx.font =
+          "12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        const cleanMed =
+          medName.length > 28 ? medName.substring(0, 25) + "..." : medName;
+        ctx.fillText(cleanMed, width / 2, 290);
+
+        ctx.fillStyle = "#059669";
+        ctx.font =
+          "italic 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText("Scan to Verify Authenticity", width / 2, 314);
+
+        const downloadUrl = stickerCanvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = `${batchId}_QR_Sticker.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
-    }
 
-    function getVerifyUrl(batchId) {
-      const cur = new URL(window.location.href);
-      if (cur.pathname.includes("/frontend/")) {
-        return new URL(`verify.html?batch=${encodeURIComponent(batchId)}`, window.location.href).href;
+      async function handleConnect() {
+        await connectWallet();
+        renderPortalState();
       }
-      const basePath = cur.pathname.substring(0, cur.pathname.lastIndexOf("/") + 1);
-      return `${cur.origin}${basePath}frontend/verify.html?batch=${encodeURIComponent(batchId)}`;
-    }
-  </script>
-</body>
+
+      function onAccountChanged(addr, role) {
+        // account switch redirects to home via common.js
+      }
+
+      function renderPortalState() {
+        const unconnected = document.getElementById("unconnectedCard");
+        const unauthorized = document.getElementById("unauthorizedCard");
+        const unauthText = document.getElementById("unauthorizedText");
+        const mfgPanel = document.getElementById("manufacturerPanel");
+
+        unconnected.classList.add("hidden");
+        unauthorized.classList.add("hidden");
+        mfgPanel.classList.add("hidden");
+
+        if (!sharedAddress) {
+          unconnected.classList.remove("hidden");
+          return;
+        }
+
+        if (sharedRole === "manufacturer") {
+          mfgPanel.classList.remove("hidden");
+          return;
+        }
+
+        unauthorized.classList.remove("hidden");
+        const addrStr = `${sharedAddress.slice(0, 6)}...${sharedAddress.slice(-4)}`;
+        if (sharedRole === "admin") {
+          unauthText.innerHTML = `Connected as <strong>Administrator</strong> (${addrStr}). Administrator accounts are restricted to the Administrator Portal and cannot access the Manufacturer Portal.<br><a href="admin.html" class="btn btn-primary" style="margin-top:14px; display:inline-block;">Open Administrator Portal →</a>`;
+        } else if (sharedRole === "distributor") {
+          unauthText.textContent = `Connected as Distributor (${addrStr}). This portal is for authorized Manufacturers only.`;
+        } else {
+          unauthText.textContent = `Wallet (${addrStr}) is not registered as an authorized Manufacturer.`;
+        }
+      }
+
+      async function handleMintBatch(e) {
+        e.preventDefault();
+        if (!sharedContract || !sharedSigner) {
+          alert("Please connect your authorized Manufacturer wallet.");
+          return;
+        }
+
+        const batchId = document.getElementById("mfgBatchId").value.trim();
+        const medName = document.getElementById("mfgMedName").value.trim();
+        const minTemp = parseInt(document.getElementById("mfgMinTemp").value);
+        const maxTemp = parseInt(document.getElementById("mfgMaxTemp").value);
+        const minCheckpoints = parseInt(
+          document.getElementById("mfgMinCheckpoints").value,
+        );
+        const expiryVal = document.getElementById("mfgExpiry").value;
+
+        if (!expiryVal) {
+          alert("Please select an expiry date");
+          return;
+        }
+
+        const expiryTimestamp = Math.floor(
+          new Date(expiryVal).getTime() / 1000,
+        );
+
+        try {
+          showAlert("Please approve transaction in your wallet...", "info");
+          const tx = await sharedContract.mintBatch(
+            batchId,
+            medName,
+            expiryTimestamp,
+            minTemp,
+            maxTemp,
+            minCheckpoints,
+          );
+          showAlert("Transaction submitted to Ganache! Confirming...", "info");
+          await tx.wait();
+
+          showAlert(
+            `Batch "${batchId}" successfully minted to blockchain!`,
+            "success",
+          );
+
+          // Register batch with backend registry and localStorage
+          try {
+            const fd = new FormData();
+            fd.append("batch_id", batchId);
+            fetch(`${BACKEND_URL}/api/batch/register`, {
+              method: "POST",
+              body: fd,
+            }).catch(() => {});
+
+            const stored = JSON.parse(
+              localStorage.getItem("sanjeevani_batches") || "[]",
+            );
+            if (!stored.includes(batchId)) {
+              stored.push(batchId);
+              localStorage.setItem(
+                "sanjeevani_batches",
+                JSON.stringify(stored),
+              );
+            }
+          } catch (e) {}
+
+          const qrBox = document.getElementById("qrcodeBox");
+          qrBox.innerHTML = "";
+
+          const verifyUrl = getVerifyUrl(batchId);
+          new QRCode(qrBox, { text: verifyUrl, width: 200, height: 200 });
+
+          document.getElementById("qrLabelText").textContent =
+            `Scan URL: ${verifyUrl}`;
+          document.getElementById("previewVerifyLink").href = verifyUrl;
+          document.getElementById("qrResult").classList.remove("hidden");
+          document
+            .getElementById("qrResult")
+            .scrollIntoView({ behavior: "smooth" });
+        } catch (err) {
+          console.error("Mint error:", err);
+          showAlert("Minting failed: " + (err.reason || err.message), "danger");
+        }
+      }
+
+      function getVerifyUrl(batchId) {
+        const cur = new URL(window.location.href);
+        if (cur.pathname.includes("/frontend/")) {
+          return new URL(
+            `verify.html?batch=${encodeURIComponent(batchId)}`,
+            window.location.href,
+          ).href;
+        }
+        const basePath = cur.pathname.substring(
+          0,
+          cur.pathname.lastIndexOf("/") + 1,
+        );
+        return `${cur.origin}${basePath}frontend/verify.html?batch=${encodeURIComponent(batchId)}`;
+      }
+    </script>
+  </body>
 </html>
