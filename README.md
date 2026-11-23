@@ -351,7 +351,7 @@ To run Sanjeevani locally, follow these 4 steps in order:
 ### Terminal 1: Start Ganache EVM Node
 Start a local EVM blockchain instance listening on port `8545`:
 ```bash
-ganache -h 0.0.0.0 -p 8545
+ganache -d -h 0.0.0.0 -p 8545
 ```
 > **Keep this terminal running.** Ganache will print 10 test accounts with private keys and 1000 ETH each.
 

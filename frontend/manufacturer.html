@@ -232,6 +232,16 @@
         await autoDetectWallet();
         renderPortalState();
 
+        // Disallow selecting any date before the current date
+        const expiryInput = document.getElementById("mfgExpiry");
+        if (expiryInput) {
+          const now = new Date();
+          const yyyy = now.getFullYear();
+          const mm = String(now.getMonth() + 1).padStart(2, "0");
+          const dd = String(now.getDate()).padStart(2, "0");
+          expiryInput.min = `${yyyy}-${mm}-${dd}`;
+        }
+
         document
           .getElementById("connectWalletBtn")
           .addEventListener("click", handleConnect);
@@ -374,8 +384,14 @@
         }
 
         const expiryTimestamp = Math.floor(
-          new Date(expiryVal).getTime() / 1000,
+          new Date(expiryVal + "T23:59:59").getTime() / 1000,
         );
+
+        const nowSec = Math.floor(Date.now() / 1000);
+        if (expiryTimestamp <= nowSec) {
+          alert("Expiry date must be in the future. Please select a date after today.");
+          return;
+        }
 
         try {
           showAlert("Please approve transaction in your wallet...", "info");

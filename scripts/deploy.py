@@ -21,7 +21,7 @@ def main():
     if not w3.is_connected():
         print(f"\n❌ Error: Cannot connect to Ganache CLI at {GANACHE_URL}")
         print("Please start Ganache in a separate terminal by running:")
-        print("    ganache -h 0.0.0.0 -p 8545")
+        print("    ganache -d -h 0.0.0.0 -p 8545")
         sys.exit(1)
 
     accounts = w3.eth.accounts
