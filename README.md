@@ -1,4 +1,4 @@
-# ❄️ Project Sanjeevani – Decentralized Cold-Chain Tracking & AI Verification System
+# 🍀 Project Sanjeevani – Decentralized Cold-Chain Tracking & AI Verification System
 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.20-blue.svg)](https://soliditylang.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
